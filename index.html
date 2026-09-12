@@ -75,7 +75,38 @@
 <body>
 <div id="app"></div>
 <div id="printArea"></div>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script>
+// ---------------- EMAIL NOTIFICATIONS (EmailJS) ----------------
+// PASO A COMPLETAR: reemplazá estos 3 valores con los tuyos de emailjs.com (plan gratuito)
+const EMAILJS_PUBLIC_KEY = 'TU_PUBLIC_KEY';
+const EMAILJS_SERVICE_ID = 'TU_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = 'TU_TEMPLATE_ID';
+const EMAILJS_DEST_EMAIL = 'tu-correo@ejemplo.com'; // a dónde te llegan los avisos
+
+let EMAILJS_READY = false;
+try{
+  if(window.emailjs && EMAILJS_PUBLIC_KEY !== 'TU_PUBLIC_KEY'){
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    EMAILJS_READY = true;
+  }
+}catch(e){ console.warn('EmailJS no inicializado', e); }
+
+function sendEmailNotification(subject, bodyObj){
+  if(!EMAILJS_READY){
+    console.log('[EmailJS deshabilitado - configurá tus claves] Evento:', subject, bodyObj);
+    return;
+  }
+  const params = {
+    to_email: EMAILJS_DEST_EMAIL,
+    subject: subject,
+    message: JSON.stringify(bodyObj, null, 2)
+  };
+  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params)
+    .then(()=>console.log('Email enviado:', subject))
+    .catch(err=>console.error('Error enviando email', err));
+}
+
 // ---------------- STORAGE HELPERS ----------------
 const KEY_CLIENTS = 'preventa:clients';
 const KEY_USERS = 'preventa:users';
@@ -84,12 +115,12 @@ const KEY_SETTINGS = 'preventa:settings';
 
 async function loadDB(key, fallback){
   try{
-    const r = await window.storage.get(key, false);
-    return r ? JSON.parse(r.value) : fallback;
-  }catch(e){ return fallback; }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(e){ console.error('storage load error', e); return fallback; }
 }
 async function saveDB(key, value){
-  try{ await window.storage.set(key, JSON.stringify(value), false); }catch(e){ console.error('storage error', e); }
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error('storage save error', e); }
 }
 
 let STATE = {
@@ -313,6 +344,11 @@ function renderRegistro(content){
     STATE.clients.push(c);
     await saveDB(KEY_CLIENTS, STATE.clients);
     addLog('registro_cliente', `${c.nombre} (DNI ${c.dni}) registró ${c.equipo}`);
+    sendEmailNotification('Nuevo registro de cliente - '+c.nombre, {
+      evento:'registro_cliente', nombre:c.nombre, dni:c.dni, telefono:c.telefono, email:c.email,
+      equipo:c.equipo, imei:c.imei, monto:c.montoTotal, interes:c.interesFijo,
+      gps: c.gps, fecha:new Date().toISOString()
+    });
     window.__draftClient = newClientRecord();
     toast('✅ Registro enviado. Esperá que el vendedor te llame.');
     render();
@@ -443,6 +479,10 @@ function renderClientDetail(){
       cl.status='aprobado'; cl.aprobadoPor=STATE.currentUser.name; cl.aprobadoAt=new Date().toISOString();
       await saveDB(KEY_CLIENTS, STATE.clients);
       addLog('aprobacion', `${STATE.currentUser.name} aprobó a ${cl.nombre}`);
+      sendEmailNotification('Cliente aprobado - '+cl.nombre, {
+        evento:'aprobacion', nombre:cl.nombre, dni:cl.dni, equipo:cl.equipo, imei:cl.imei,
+        aprobadoPor: STATE.currentUser.name, fecha:new Date().toISOString()
+      });
       printPagare(cl);
       toast('Cliente aprobado. Pagaré generado.');
       render(); STATE.editingClientId=cl.id; renderClientDetail();
@@ -469,6 +509,11 @@ function renderClientDetail(){
         if(cuota.n===3) cl.status='completado';
         await saveDB(KEY_CLIENTS, STATE.clients);
         addLog('pago_cuota', `${STATE.currentUser.name} registró pago de cuota ${cuota.n} de ${cl.nombre}`);
+        sendEmailNotification('Pago cuota '+cuota.n+' - '+cl.nombre, {
+          evento:'pago_cuota', nombre:cl.nombre, dni:cl.dni, cuota:cuota.n, monto:cuota.monto,
+          recargoAplicado: cuota.recargoAplicado, saldoPendiente: saldoPendiente(cl),
+          vendedor: STATE.currentUser.name, fecha:new Date().toISOString()
+        });
         printRecibo(cl, cuota);
         toast(`Cuota ${cuota.n} pagada. Recibo generado.`);
         render(); STATE.editingClientId=cl.id; renderClientDetail();
@@ -489,6 +534,10 @@ function renderClientDetail(){
       cl.entregado = true; cl.entregadoAt = new Date().toISOString(); cl.entregadoPor = STATE.currentUser.name;
       await saveDB(KEY_CLIENTS, STATE.clients);
       addLog('entrega', `${STATE.currentUser.name} entregó el equipo a ${cl.nombre}`);
+      sendEmailNotification('Equipo entregado - '+cl.nombre, {
+        evento:'entrega', nombre:cl.nombre, dni:cl.dni, equipo:cl.equipo, imei:cl.imei,
+        entregadoPor: STATE.currentUser.name, fecha:new Date().toISOString()
+      });
       toast('📱 Equipo marcado como entregado.');
       render(); STATE.editingClientId=cl.id; renderClientDetail();
     };
@@ -611,10 +660,24 @@ function renderIntegracion(content){
         <li><strong>Estructura de datos estándar:</strong> cada cliente tiene los mismos campos (DNI, equipo, IMEI, cuotas, estado), listos para mapear a tu base de datos.</li>
       </ol>
 
-      <label>URL de Webhook de tu sistema administrativo (opcional)</label>
-      <input id="webhookUrl" placeholder="https://tu-sistema.com/api/webhook-preventa" value="${STATE.settings.webhookUrl||''}">
-      <button class="btn btn-primary btn-sm" id="btnSaveWebhook" style="margin-top:8px;">Guardar URL</button>
-      <p class="muted" style="margin-top:6px;">⚠️ Nota: por restricciones del navegador, este entorno de demo no puede hacer llamadas salientes a dominios externos arbitrarios. Cuando lleves esta app a producción (hosting propio), el código para el POST automático ya queda preparado — ver abajo.</p>
+      <div class="card" style="background:var(--panel2);">
+        <h3 style="font-size:14px;margin-top:0;">📧 Notificación automática por email — Estado: ${EMAILJS_READY ? '<span style="color:var(--accent2);">✔️ ACTIVADO</span>' : '<span style="color:var(--danger);">✖️ Sin configurar</span>'}</h3>
+        <p class="muted">Cada registro, aprobación, pago de cuota y entrega envía automáticamente un correo a tu casilla. Para activarlo:</p>
+        <ol style="font-size:13px;color:var(--muted);">
+          <li>Creá una cuenta gratis en <strong>emailjs.com</strong></li>
+          <li>Conectá tu Gmail/Outlook como "Email Service" (te da un <code>SERVICE_ID</code>)</li>
+          <li>Creá un "Email Template" simple con variables <code>{{subject}}</code> y <code>{{message}}</code> (te da un <code>TEMPLATE_ID</code>)</li>
+          <li>Copiá tu <code>PUBLIC_KEY</code> desde "Account"</li>
+          <li>Abrí el archivo <code>index.html</code> con un editor de texto y completá estas 4 líneas cerca del inicio del archivo:
+            <pre>const EMAILJS_PUBLIC_KEY = 'tu_public_key';
+const EMAILJS_SERVICE_ID = 'tu_service_id';
+const EMAILJS_TEMPLATE_ID = 'tu_template_id';
+const EMAILJS_DEST_EMAIL = 'tu-correo@ejemplo.com';</pre>
+          </li>
+          <li>Guardá el archivo y volvé a subirlo a GitHub (reemplazando el anterior)</li>
+        </ol>
+        <p class="muted">Plan gratuito de EmailJS: 200 emails/mes, suficiente para un local de tamaño chico/mediano.</p>
+      </div>
 
       <h3 style="font-size:13px;margin-top:20px;">Ejemplo de payload que se enviaría por webhook:</h3>
       <pre>{
