@@ -75,8 +75,29 @@
 <body>
 <div id="app"></div>
 <div id="printArea"></div>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script>
+// ---------------- FIREBASE (base de datos centralizada) ----------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAdpW1dO288j5x-rOdO6VVigLxqFJpd5Dk",
+  authDomain: "sistema-preventa-9f549.firebaseapp.com",
+  projectId: "sistema-preventa-9f549",
+  storageBucket: "sistema-preventa-9f549.firebasestorage.app",
+  messagingSenderId: "1014356013557",
+  appId: "1:1014356013557:web:0eb1b02aa9c58251ee30bc"
+};
+let db = null;
+let FIREBASE_READY = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  FIREBASE_READY = true;
+}catch(e){ console.error('Error iniciando Firebase', e); }
+
+const FIRESTORE_COLLECTION = 'preventa_data';
+
 // ---------------- EMAIL NOTIFICATIONS (EmailJS) ----------------
 // PASO A COMPLETAR: reemplazá estos 3 valores con los tuyos de emailjs.com (plan gratuito)
 const EMAILJS_PUBLIC_KEY = 'j5q6PJqSwUuGhqZOY';
@@ -107,20 +128,44 @@ function sendEmailNotification(subject, bodyObj){
     .catch(err=>console.error('Error enviando email', err));
 }
 
-// ---------------- STORAGE HELPERS ----------------
-const KEY_CLIENTS = 'preventa:clients';
-const KEY_USERS = 'preventa:users';
-const KEY_LOG = 'preventa:auditlog';
-const KEY_SETTINGS = 'preventa:settings';
+// ---------------- STORAGE HELPERS (Firebase Firestore) ----------------
+const KEY_CLIENTS = 'clients';
+const KEY_USERS = 'users';
+const KEY_LOG = 'auditlog';
+const KEY_SETTINGS = 'settings';
 
 async function loadDB(key, fallback){
+  if(!FIREBASE_READY){
+    try{ const raw = localStorage.getItem('preventa:'+key); return raw ? JSON.parse(raw) : fallback; }
+    catch(e){ return fallback; }
+  }
   try{
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  }catch(e){ console.error('storage load error', e); return fallback; }
+    const doc = await db.collection(FIRESTORE_COLLECTION).doc(key).get();
+    if(doc.exists && doc.data() && doc.data().value !== undefined) return doc.data().value;
+    return fallback;
+  }catch(e){ console.error('Firestore load error ('+key+')', e); return fallback; }
 }
+
 async function saveDB(key, value){
-  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error('storage save error', e); }
+  if(!FIREBASE_READY){
+    try{ localStorage.setItem('preventa:'+key, JSON.stringify(value)); }catch(e){}
+    return;
+  }
+  try{
+    await db.collection(FIRESTORE_COLLECTION).doc(key).set({ value: value, updatedAt: new Date().toISOString() });
+  }catch(e){ console.error('Firestore save error ('+key+')', e); }
+}
+
+// Sincronización en tiempo real: si otro dispositivo (cliente o vendedor) modifica
+// la lista de clientes, este dispositivo se actualiza solo, sin recargar la página.
+function subscribeRealtime(){
+  if(!FIREBASE_READY) return;
+  db.collection(FIRESTORE_COLLECTION).doc(KEY_CLIENTS).onSnapshot(function(doc){
+    if(doc.exists && doc.data() && doc.data().value){
+      STATE.clients = doc.data().value;
+      render();
+    }
+  }, function(err){ console.error('Error de sincronización en tiempo real', err); });
 }
 
 let STATE = {
@@ -143,6 +188,7 @@ async function initState(){
   const s = await loadDB(KEY_SETTINGS, null);
   STATE.settings = s || STATE.settings;
   render();
+  subscribeRealtime();
 }
 
 function uid(){ return 'c_' + Math.random().toString(36).slice(2,10); }
@@ -209,6 +255,7 @@ function render(){
     <header>
       <h1>📱 ${STATE.settings.negocio} — Sistema de Preventa</h1>
       <span class="badge">${STATE.currentUser ? '👤 '+STATE.currentUser.name+' (Vendedor)' : 'Modo Cliente'}</span>
+      <span class="badge" style="color:${FIREBASE_READY?'var(--accent2)':'var(--danger)'};">${FIREBASE_READY?'☁️ Conectado':'⚠️ Sin conexión (local)'}</span>
     </header>
     <nav>
       <button data-tab="registro" class="${STATE.tab==='registro'?'active':''}">📝 Registro Cliente</button>
@@ -837,6 +884,48 @@ function printShell(title, bodyHtml){
   w.document.close();
 }
 
+function terminosCondicionesHTML(cl){
+  const negocio = STATE.settings.negocio;
+  const moraPct = STATE.settings.moraPct;
+  return [
+    '<div style="page-break-before:always;"></div>',
+    '<div class="doc-header" style="margin-top:10px;">',
+      '<div><div class="biz">', negocio, '</div><div class="biz-sub">Términos y Condiciones del Plan de Reserva</div></div>',
+    '</div>',
+    '<div class="doc-title" style="font-size:14px;">Términos y Condiciones Aplicables al Cliente</div>',
+    '<div class="legal-text" style="text-align:left;font-size:10px;line-height:1.55;">',
+
+      '<p><b>1. Objeto.</b> El presente documento regula la reserva del equipo detallado en este contrato bajo la modalidad de <b>plan de acumulación / preventa con entrega al finalizar el pago total</b>. El equipo permanece en poder de ', negocio, ' hasta que el/la cliente abone la totalidad de las cuotas pactadas.</p>',
+
+      '<p><b>2. Condiciones de pago.</b> El monto total (equipo + inter&eacute;s fijo pactado) se abona en tres (3) cuotas seg&uacute;n las fechas indicadas en este documento. En caso de atraso en el pago de una cuota respecto de su fecha de vencimiento, se aplicar&aacute; autom&aacute;ticamente un recargo por mora del ', moraPct, '% sobre el monto de esa cuota, el cual se informar&aacute; de forma transparente al cliente antes de ser cobrado.</p>',
+
+      '<p><b>3. Entrega del equipo.</b> El equipo reservado ser&aacute; entregado al/a la cliente &uacute;nicamente una vez cancelada la totalidad de las cuotas pactadas (capital, inter&eacute;s y eventuales recargos por mora). Hasta ese momento, el equipo queda identificado como reservado a nombre del cliente y no ser&aacute; ofrecido a terceros, salvo lo dispuesto en la cl&aacute;usula 4.</p>',
+
+      '<p><b>4. Incumplimiento o abandono del plan.</b> Si el/la cliente interrumpe el pago de las cuotas por un per&iacute;odo prolongado, ', negocio, ' se reserva el derecho de dar de baja la reserva y disponer nuevamente del equipo, conforme a la pol&iacute;tica de cancelaci&oacute;n vigente que ser&aacute; informada por el vendedor al momento de la firma. Los importes ya abonados se tratar&aacute;n conforme a dicha pol&iacute;tica.</p>',
+
+      '<p><b>5. Verificaci&oacute;n de identidad presencial.</b> Conforme a la modalidad de venta de ', negocio, ', el alta del cliente requiere la verificaci&oacute;n f&iacute;sica de su documento de identidad (DNI o pasaporte) y la toma de una fotograf&iacute;a en el momento del registro, junto con el registro de la ubicaci&oacute;n geogr&aacute;fica del dispositivo utilizado, con el &uacute;nico fin de certificar que el alta se realiz&oacute; de manera presencial dentro del local y prevenir intentos de fraude o suplantaci&oacute;n de identidad.</p>',
+
+      '<p><b>6. Protecci&oacute;n de datos personales (Ley 25.326).</b> Los datos personales, la fotograf&iacute;a y la ubicaci&oacute;n geogr&aacute;fica recolectados durante el registro ser&aacute;n incorporados a una base de datos gestionada por ', negocio, ', quien act&uacute;a como responsable del tratamiento de dichos datos. Estos datos ser&aacute;n utilizados exclusivamente para: (a) verificar la identidad del cliente, (b) gestionar el plan de pagos y la operaci&oacute;n comercial, y (c) prevenir fraudes. No ser&aacute;n cedidos a terceros salvo obligaci&oacute;n legal o requerimiento de autoridad competente.</p>',
+
+      '<p><b>7. Derechos del titular de los datos (Derechos ARCO).</b> De conformidad con la Ley 25.326, el/la cliente tiene derecho a acceder, rectificar, actualizar y, cuando corresponda, solicitar la supresi&oacute;n de sus datos personales. Para ejercer estos derechos, puede dirigirse directamente a ', negocio, ' por los medios de contacto habituales del local. La Agencia de Acceso a la Informaci&oacute;n P&uacute;blica, en su car&aacute;cter de &oacute;rgano de control de la Ley 25.326, tiene la atribuci&oacute;n de atender las denuncias y reclamos que se interpongan con relaci&oacute;n al incumplimiento de las normas sobre protecci&oacute;n de datos personales.</p>',
+
+      '<p><b>8. Conservaci&oacute;n de los datos.</b> Los datos recolectados se conservar&aacute;n mientras dure la relaci&oacute;n comercial derivada de este plan, y con posterioridad por el plazo que exijan las obligaciones legales, impositivas o contables aplicables.</p>',
+
+      '<p><b>9. Consentimiento expreso.</b> La aceptaci&oacute;n de estos T&eacute;rminos y Condiciones, realizada desde el dispositivo m&oacute;vil del cliente al momento del registro, constituye consentimiento expreso e informado para la recolecci&oacute;n y el tratamiento de los datos personales, la fotograf&iacute;a biom&eacute;trica y la ubicaci&oacute;n geogr&aacute;fica descriptos en este documento, en los t&eacute;rminos de la Ley 25.326.</p>',
+
+      '<p><b>10. Marco de defensa del consumidor (Ley 24.240).</b> El/la cliente cuenta con los derechos reconocidos por la Ley 24.240 de Defensa del Consumidor, incluyendo el derecho a recibir informaci&oacute;n cierta, clara y detallada sobre las condiciones de la operaci&oacute;n, el precio total, el inter&eacute;s aplicado y las condiciones de pago, todo lo cual se encuentra reflejado en el cuerpo principal de este contrato.</p>',
+
+      '<p><b>11. Documento v&aacute;lido.</b> El presente contrato, firmado de pu&ntilde;o y letra por el/la cliente en el mostrador, junto con la aceptaci&oacute;n digital de estos t&eacute;rminos desde su dispositivo m&oacute;vil, constituyen en conjunto la prueba de la operaci&oacute;n comercial y del consentimiento informado del cliente.</p>',
+
+    '</div>',
+    '<div class="stamp" style="margin-top:14px;">Aceptado digitalmente desde el dispositivo del cliente el ', (cl.tycAceptadoAt ? new Date(cl.tycAceptadoAt).toLocaleString() : new Date().toLocaleString()), (cl.gps ? (' &middot; Ubicaci&oacute;n registrada: ' + cl.gps.lat.toFixed(5) + ', ' + cl.gps.lng.toFixed(5)) : ''), '</div>',
+    '<div class="signatures">',
+      '<div class="sig-box"><div class="line">Firma del Cliente</div><div class="sub">Aceptaci&oacute;n de T&eacute;rminos y Condiciones</div></div>',
+      '<div class="sig-box"><div class="line">Firma del Vendedor</div><div class="sub">', (cl.aprobadoPor||STATE.currentUser.name), '</div></div>',
+    '</div>'
+  ].join('');
+}
+
 function printPagare(cl){
   const docNo = docNumber(cl,'PAG');
   const rows = cl.cuotas.map(function(c){
@@ -859,12 +948,13 @@ function printPagare(cl){
       '<div><span class="info-label">Inter&eacute;s fijo aplicado</span>', cl.interesFijo, '%</div>',
     '</div>',
     '<table class="doc-table"><tr><th>Concepto</th><th>Monto</th><th>Vencimiento</th></tr>', rows, '</table>',
-    '<p class="legal-text">El presente documento certifica que el/la cliente arriba mencionado/a reserv&oacute; el equipo detallado, comprometi&eacute;ndose a abonar el total en tres (3) cuotas seg&uacute;n el cronograma indicado. En caso de mora en el pago de cualquier cuota, se aplicar&aacute; un recargo del ', STATE.settings.moraPct, '% sobre el monto adeudado de esa cuota. El equipo ser&aacute; entregado &uacute;nicamente al finalizar el pago total de las tres cuotas pactadas.</p>',
+    '<p class="legal-text">El presente documento certifica que el/la cliente arriba mencionado/a reserv&oacute; el equipo detallado, comprometi&eacute;ndose a abonar el total en tres (3) cuotas seg&uacute;n el cronograma indicado. En caso de mora en el pago de cualquier cuota, se aplicar&aacute; un recargo del ', STATE.settings.moraPct, '% sobre el monto adeudado de esa cuota. El equipo ser&aacute; entregado &uacute;nicamente al finalizar el pago total de las tres cuotas pactadas. <b>Ver T&eacute;rminos y Condiciones completos en la p&aacute;gina siguiente.</b></p>',
     '<div class="stamp">Registro biom&eacute;trico y georreferenciado verificado dentro del local al momento del alta &middot; Aprobado por: ', (cl.aprobadoPor||'-'), ' el ', (cl.aprobadoAt? new Date(cl.aprobadoAt).toLocaleString():'-'), '</div>',
     '<div class="signatures">',
       '<div class="sig-box"><div class="line">Firma del Cliente</div><div class="sub">DNI ', cl.dni, '</div></div>',
       '<div class="sig-box"><div class="line">Firma del Vendedor</div><div class="sub">', (cl.aprobadoPor||STATE.currentUser.name), '</div></div>',
-    '</div>'
+    '</div>',
+    terminosCondicionesHTML(cl)
   ].join('');
   printShell('Pagare ' + cl.nombre, body);
 }
