@@ -13,39 +13,40 @@
 </script>
 <style>
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --border:#2a2f3a;
-    --text:#e8eaed; --muted:#9aa3b2; --accent:#4f8cff; --accent2:#2ecf8f;
-    --warn:#ffb84f; --danger:#ff5c5c; --radius:14px;
+    --bg:#faf9f6; --panel:#ffffff; --panel2:#f3f2ee; --border:#e0ddd4;
+    --text:#1a1a1a; --muted:#5f5e5a; --accent:#e5231b; --accent2:#1a9e56;
+    --warn:#b3720b; --danger:#c62828; --radius:14px;
+    --brand-grad: linear-gradient(90deg, #e5231b, #f6a417);
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);}
   #app{max-width:1100px;margin:0 auto;padding:16px;}
-  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
-  header h1{font-size:18px;margin:0;}
-  header .badge{font-size:11px;color:var(--muted);background:var(--panel2);padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#1a1a1a;padding:14px 18px;border-radius:14px;}
+  header h1{font-size:18px;margin:0;color:#fff;}
+  header .badge{font-size:11px;color:#cfcfcf;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);}
   nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
   nav button{background:var(--panel);color:var(--muted);border:1px solid var(--border);padding:9px 14px;border-radius:10px;cursor:pointer;font-size:13px;}
-  nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  nav button.active{background:var(--brand-grad);color:#fff;border-color:transparent;font-weight:600;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
   .card h2{font-size:15px;margin:0 0 14px;color:var(--text);}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px;}
-  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:14px;}
+  input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:14px;}
   textarea{resize:vertical;min-height:60px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:640px){.row{grid-template-columns:1fr;}}
   button.btn{cursor:pointer;border:none;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;}
-  .btn-primary{background:var(--accent);color:#fff;}
-  .btn-success{background:var(--accent2);color:#04231a;}
-  .btn-warn{background:var(--warn);color:#2a1900;}
-  .btn-danger{background:var(--danger);color:#2a0000;}
+  .btn-primary{background:var(--brand-grad);color:#fff;}
+  .btn-success{background:var(--accent2);color:#fff;}
+  .btn-warn{background:#f6a417;color:#2a1900;}
+  .btn-danger{background:var(--danger);color:#fff;}
   .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
   .btn-sm{padding:7px 12px;font-size:12px;}
   .muted{color:var(--muted);font-size:12px;}
   .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
-  .pill-pend{background:#3a2f10;color:var(--warn);}
-  .pill-ok{background:#0f2e22;color:var(--accent2);}
-  .pill-mora{background:#3a1010;color:var(--danger);}
-  .pill-done{background:#132540;color:var(--accent);}
+  .pill-pend{background:#faeeda;color:#854f0b;}
+  .pill-ok{background:#eaf3de;color:#27500a;}
+  .pill-mora{background:#fcebeb;color:#791f1f;}
+  .pill-done{background:#e6f1fb;color:#0c447c;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
   th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;}
@@ -63,11 +64,11 @@
   .lockscreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;}
   .pindots{display:flex;gap:10px;margin:20px 0;}
   .pindot{width:14px;height:14px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);}
-  .pindot.filled{background:var(--accent);}
+  .pindot.filled{background:var(--brand-grad);}
   .keypad{display:grid;grid-template-columns:repeat(3,70px);gap:12px;}
   .keypad button{width:70px;height:70px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);color:var(--text);font-size:20px;}
   #printArea{display:none;}
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;border:1px solid #333;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.2);}
   .doc-frame{background:#fff;color:#111;padding:24px;border-radius:8px;font-size:12px;line-height:1.5;}
   .doc-frame h3{text-align:center;margin-bottom:4px;}
   .doc-frame table{font-size:11px;}
@@ -280,7 +281,7 @@ function render(){
   if(isClientMode){
     app.innerHTML = `
       <header>
-        <h1>${STATE.settings.logoBase64 ? `<img src="${STATE.settings.logoBase64}" alt="logo" style="height:32px;vertical-align:middle;margin-right:8px;">` : '📱'} ${STATE.settings.negocio}</h1>
+        <h1>${STATE.settings.logoBase64 ? `<span style="background:#fff;padding:4px 8px;border-radius:8px;display:inline-block;vertical-align:middle;margin-right:8px;"><img src="${STATE.settings.logoBase64}" alt="logo" style="height:26px;display:block;"></span>` : '📱'} Sistema de Preventa</h1>
         <span class="badge" style="color:${FIREBASE_READY?'var(--accent2)':'var(--danger)'};">${FIREBASE_READY?'☁️ Conectado':'⚠️ Sin conexión'}</span>
       </header>
       <div id="content"></div>
@@ -289,18 +290,20 @@ function render(){
     return;
   }
 
+  const isAdmin = STATE.currentUser && STATE.currentUser.role === 'admin';
+
   app.innerHTML = `
     <header>
-      <h1>${STATE.settings.logoBase64 ? `<img src="${STATE.settings.logoBase64}" alt="logo" style="height:32px;vertical-align:middle;margin-right:8px;">` : '📱'} ${STATE.settings.negocio} — Sistema de Preventa</h1>
-      <span class="badge">${STATE.currentUser ? '👤 '+STATE.currentUser.name+' (Vendedor)' : 'Modo Cliente'}</span>
+      <h1>${STATE.settings.logoBase64 ? `<span style="background:#fff;padding:4px 8px;border-radius:8px;display:inline-block;vertical-align:middle;margin-right:8px;"><img src="${STATE.settings.logoBase64}" alt="logo" style="height:26px;display:block;"></span>` : '📱'} Sistema de Preventa</h1>
+      <span class="badge">${STATE.currentUser ? '👤 '+STATE.currentUser.name+' ('+(isAdmin?'Admin':'Vendedor')+')' : 'Modo Cliente'}</span>
       <span class="badge" style="color:${FIREBASE_READY?'var(--accent2)':'var(--danger)'};">${FIREBASE_READY?'☁️ Conectado':'⚠️ Sin conexión (local)'}</span>
     </header>
     <nav>
       <button data-tab="registro" class="${STATE.tab==='registro'?'active':''}">📝 Nuevo Cliente</button>
       <button data-tab="vendedor" class="${STATE.tab==='vendedor'?'active':''}">🔐 Panel Vendedor</button>
-      <button data-tab="dashboard" class="${STATE.tab==='dashboard'?'active':''}">📊 Dashboard</button>
-      <button data-tab="integracion" class="${STATE.tab==='integracion'?'active':''}">🔗 Integración</button>
-      <button data-tab="config" class="${STATE.tab==='config'?'active':''}">⚙️ Configuración</button>
+      ${isAdmin ? `<button data-tab="dashboard" class="${STATE.tab==='dashboard'?'active':''}">📊 Dashboard</button>` : ''}
+      ${isAdmin ? `<button data-tab="integracion" class="${STATE.tab==='integracion'?'active':''}">🔗 Integración</button>` : ''}
+      ${isAdmin ? `<button data-tab="config" class="${STATE.tab==='config'?'active':''}">⚙️ Configuración</button>` : ''}
     </nav>
     <div id="content"></div>
   `;
@@ -308,11 +311,15 @@ function render(){
     b.onclick = ()=>{ STATE.tab = b.dataset.tab; STATE.editingClientId=null; render(); };
   });
   const content = document.getElementById('content');
+  const restrictedTabs = ['dashboard','integracion','config'];
+  if(restrictedTabs.includes(STATE.tab) && !isAdmin){
+    STATE.tab = 'vendedor';
+  }
   if(STATE.tab==='registro') renderRegistro(content);
   if(STATE.tab==='vendedor') renderVendedor(content);
-  if(STATE.tab==='dashboard') renderDashboard(content);
-  if(STATE.tab==='integracion') renderIntegracion(content);
-  if(STATE.tab==='config') renderConfig(content);
+  if(STATE.tab==='dashboard' && isAdmin) renderDashboard(content);
+  if(STATE.tab==='integracion' && isAdmin) renderIntegracion(content);
+  if(STATE.tab==='config' && isAdmin) renderConfig(content);
 }
 
 // ---------------- TAB: NUEVO CLIENTE (paso del vendedor) ----------------
@@ -1066,8 +1073,13 @@ function renderConfig(content){
         <div><label>Nombre nuevo usuario</label><input id="newUserName"></div>
         <div><label>PIN (4 dígitos)</label><input id="newUserPin" maxlength="4"></div>
       </div>
+      <label>Rol</label>
+      <select id="newUserRole">
+        <option value="vendedor">Vendedor (acceso limitado)</option>
+        <option value="admin">Administrador (acceso total)</option>
+      </select>
       <button class="btn btn-success btn-sm" id="btnAddUser" style="margin-top:8px;">+ Agregar usuario</button>
-      <p class="muted" style="margin-top:8px;">Cada vendedor debería tener su propio PIN para trazabilidad en el log de auditoría.</p>
+      <p class="muted" style="margin-top:8px;">Cada vendedor debería tener su propio PIN para trazabilidad en el log de auditoría. Los vendedores no ven Dashboard, Configuración ni Integración.</p>
     </div>
 
     <div class="card">
@@ -1101,8 +1113,9 @@ function renderConfig(content){
   document.getElementById('btnAddUser').onclick = async ()=>{
     const name = document.getElementById('newUserName').value.trim();
     const pin = document.getElementById('newUserPin').value.trim();
+    const role = document.getElementById('newUserRole').value;
     if(!name || pin.length!==4){ toast('Completá nombre y PIN de 4 dígitos'); return; }
-    STATE.users.push({id:uid(), name, pin, role:'vendedor'});
+    STATE.users.push({id:uid(), name, pin, role});
     await saveDB(KEY_USERS, STATE.users);
     toast('Usuario agregado');
     render();
