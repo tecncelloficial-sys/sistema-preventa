@@ -233,10 +233,12 @@ function newClientRecord(){
   return {
     id: uid(),
     createdAt: new Date().toISOString(),
-    nombre:'', dni:'', telefono:'', email:'',
+    nombre:'', dni:'', telefono:'', email:'', emailVendedor:'',
     equipo:'', imei:'', montoTotal:0, interesFijo:0,
-    fotoDataUrl:null, gps:null,
-    status:'pendiente_registro', // pendiente_registro -> pendiente_aprobacion -> aprobado -> cuota1_pagada -> cuota2_pagada -> completado -> cancelado
+    dniFrenteFoto:null, dniDorsoFoto:null,
+    fotoDataUrl:null, gps:null, tycAceptadoAt:null,
+    status:'pendiente_datos_cliente', // pendiente_datos_cliente -> pendiente_aprobacion -> aprobado -> cuota1_pagada -> cuota2_pagada -> completado -> cancelado
+    creadoPor:null,
     aprobadoPor:null, aprobadoAt:null,
     cuotas: [
       { n:1, monto:0, vencimiento:null, pagado:false, pagadoAt:null, recargoAplicado:false },
@@ -271,7 +273,9 @@ function checkImei(imei){
 // ---------------- RENDER ----------------
 function render(){
   const app = document.getElementById('app');
-  const isClientMode = new URLSearchParams(window.location.search).get('modo') === 'cliente';
+  const params = new URLSearchParams(window.location.search);
+  const isClientMode = params.get('modo') === 'cliente';
+  const clientId = params.get('id');
 
   if(isClientMode){
     app.innerHTML = `
@@ -281,7 +285,7 @@ function render(){
       </header>
       <div id="content"></div>
     `;
-    renderRegistro(document.getElementById('content'));
+    renderClienteCompletar(document.getElementById('content'), clientId);
     return;
   }
 
@@ -292,7 +296,7 @@ function render(){
       <span class="badge" style="color:${FIREBASE_READY?'var(--accent2)':'var(--danger)'};">${FIREBASE_READY?'☁️ Conectado':'⚠️ Sin conexión (local)'}</span>
     </header>
     <nav>
-      <button data-tab="registro" class="${STATE.tab==='registro'?'active':''}">📝 Registro Cliente</button>
+      <button data-tab="registro" class="${STATE.tab==='registro'?'active':''}">📝 Nuevo Cliente</button>
       <button data-tab="vendedor" class="${STATE.tab==='vendedor'?'active':''}">🔐 Panel Vendedor</button>
       <button data-tab="dashboard" class="${STATE.tab==='dashboard'?'active':''}">📊 Dashboard</button>
       <button data-tab="integracion" class="${STATE.tab==='integracion'?'active':''}">🔗 Integración</button>
@@ -311,23 +315,27 @@ function render(){
   if(STATE.tab==='config') renderConfig(content);
 }
 
-// ---------------- TAB: REGISTRO CLIENTE ----------------
+// ---------------- TAB: NUEVO CLIENTE (paso del vendedor) ----------------
 function renderRegistro(content){
-  const draftKey = '__draft';
   if(!window.__draftClient) window.__draftClient = newClientRecord();
+  if(window.__draftCreated){
+    renderQRGenerado(content, window.__draftCreated);
+    return;
+  }
   const c = window.__draftClient;
 
   content.innerHTML = `
     <div class="card">
-      <h2>Paso 1 — Datos del Cliente</h2>
+      <h2>Paso 1 — Datos básicos del Cliente</h2>
       <div class="row">
         <div><label>Nombre y Apellido</label><input id="f_nombre" value="${c.nombre}"></div>
         <div><label>DNI / Pasaporte</label><input id="f_dni" value="${c.dni}"></div>
       </div>
       <div class="row">
         <div><label>Teléfono</label><input id="f_tel" value="${c.telefono}"></div>
-        <div><label>Email (opcional)</label><input id="f_email" value="${c.email}"></div>
+        <div><label>Email del cliente</label><input id="f_email" value="${c.email}" placeholder="Se usará para verificar identidad en el celular"></div>
       </div>
+      <p class="muted">⚠️ Este email debe ser el mismo que el cliente vuelva a escribir en su celular — si no coinciden, no va a poder continuar el registro.</p>
     </div>
 
     <div class="card">
@@ -345,29 +353,39 @@ function renderRegistro(content){
     </div>
 
     <div class="card">
-      <h2>Paso 3 — Biometría Presencial + Geolocalización</h2>
-      <p class="muted">Se debe tomar la selfie EN VIVO dentro del local. Se registrará GPS automáticamente.</p>
-      <div class="flex">
-        <video id="video" autoplay playsinline style="display:none;"></video>
-        <img id="photoPreview" alt="foto"/>
+      <h2>Paso 3 — Foto del DNI (frente y dorso)</h2>
+      <p class="muted">Sacá foto del documento físico del cliente con la cámara de este equipo.</p>
+      <div class="row">
+        <div>
+          <label>Frente del DNI</label>
+          <video id="videoFrente" autoplay playsinline style="display:none;"></video>
+          <img id="previewFrente" alt="DNI frente" style="display:${c.dniFrenteFoto?'block':'none'};" src="${c.dniFrenteFoto||''}">
+          <div class="flex" style="margin-top:6px;">
+            <button class="btn btn-ghost btn-sm" id="btnCamFrente">📷 Activar cámara</button>
+            <button class="btn btn-primary btn-sm" id="btnShotFrente" style="display:none;">Capturar frente</button>
+          </div>
+        </div>
+        <div>
+          <label>Dorso del DNI</label>
+          <video id="videoDorso" autoplay playsinline style="display:none;"></video>
+          <img id="previewDorso" alt="DNI dorso" style="display:${c.dniDorsoFoto?'block':'none'};" src="${c.dniDorsoFoto||''}">
+          <div class="flex" style="margin-top:6px;">
+            <button class="btn btn-ghost btn-sm" id="btnCamDorso">📷 Activar cámara</button>
+            <button class="btn btn-primary btn-sm" id="btnShotDorso" style="display:none;">Capturar dorso</button>
+          </div>
+        </div>
       </div>
-      <div class="flex" style="margin-top:10px;">
-        <button class="btn btn-ghost btn-sm" id="btnCam">📷 Activar Cámara</button>
-        <button class="btn btn-primary btn-sm" id="btnShot" style="display:none;">Tomar Foto</button>
-        <button class="btn btn-ghost btn-sm" id="btnGps">📍 Capturar Ubicación GPS</button>
-      </div>
-      <p id="gpsResult" class="muted" style="margin-top:8px;">${c.gps? `✅ GPS: ${c.gps.lat.toFixed(5)}, ${c.gps.lng.toFixed(5)}` : 'GPS no capturado aún'}</p>
     </div>
 
     <div class="card">
-      <button class="btn btn-success" id="btnSubmitClient">Enviar registro para aprobación del vendedor →</button>
+      <button class="btn btn-success" id="btnSubmitClient">Guardar y generar QR para el cliente →</button>
     </div>
   `;
 
   document.getElementById('f_nombre').oninput = e=>c.nombre=e.target.value;
   document.getElementById('f_dni').oninput = e=>c.dni=e.target.value;
   document.getElementById('f_tel').oninput = e=>c.telefono=e.target.value;
-  document.getElementById('f_email').oninput = e=>c.email=e.target.value;
+  document.getElementById('f_email').oninput = e=>c.emailVendedor=e.target.value;
   document.getElementById('f_equipo').oninput = e=>c.equipo=e.target.value;
   document.getElementById('f_imei').oninput = e=>{
     c.imei=e.target.value;
@@ -379,6 +397,166 @@ function renderRegistro(content){
   };
   document.getElementById('f_monto').oninput = e=>c.montoTotal=Number(e.target.value);
   document.getElementById('f_interes').oninput = e=>c.interesFijo=Number(e.target.value);
+
+  function setupCam(videoId, shotBtnId, camBtnId, previewId, onCapture){
+    document.getElementById(camBtnId).onclick = async ()=>{
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+        const video = document.getElementById(videoId);
+        video.srcObject = stream; video.style.display='block';
+        document.getElementById(shotBtnId).style.display='inline-block';
+        window['__stream_'+videoId] = stream;
+      }catch(e){ toast('No se pudo acceder a la cámara: '+e.message); }
+    };
+    document.getElementById(shotBtnId).onclick = ()=>{
+      const video = document.getElementById(videoId);
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video,0,0);
+      const dataUrl = canvas.toDataURL('image/jpeg',0.8);
+      onCapture(dataUrl);
+      const preview = document.getElementById(previewId);
+      preview.src = dataUrl; preview.style.display='block';
+      video.style.display='none';
+      const stream = window['__stream_'+videoId];
+      if(stream) stream.getTracks().forEach(t=>t.stop());
+      toast('📸 Foto capturada');
+    };
+  }
+  setupCam('videoFrente','btnShotFrente','btnCamFrente','previewFrente', (url)=>c.dniFrenteFoto=url);
+  setupCam('videoDorso','btnShotDorso','btnCamDorso','previewDorso', (url)=>c.dniDorsoFoto=url);
+
+  document.getElementById('btnSubmitClient').onclick = async ()=>{
+    if(!c.nombre || !c.dni){ toast('Completá nombre y DNI'); return; }
+    if(!c.equipo || !c.montoTotal){ toast('Completá el equipo y el monto'); return; }
+    if(!c.emailVendedor){ toast('Completá el email del cliente'); return; }
+    if(!c.dniFrenteFoto || !c.dniDorsoFoto){ toast('Falta la foto del DNI (frente y dorso)'); return; }
+    const monto = calcCuotaMonto(c.montoTotal, c.interesFijo);
+    const today = new Date();
+    c.cuotas = [1,2,3].map(n=>{
+      const venc = new Date(today); venc.setDate(venc.getDate() + n*15);
+      return { n, monto, vencimiento: venc.toISOString(), pagado:false, pagadoAt:null, recargoAplicado:false };
+    });
+    c.status = 'pendiente_datos_cliente';
+    c.creadoPor = STATE.currentUser ? STATE.currentUser.name : 'Vendedor';
+    STATE.clients.push(c);
+    await saveDB(KEY_CLIENTS, STATE.clients);
+    addLog('creacion_cliente', `${STATE.currentUser?STATE.currentUser.name:'Vendedor'} cargó datos y DNI de ${c.nombre}`);
+    window.__draftCreated = c;
+    window.__draftClient = newClientRecord();
+    renderQRGenerado(content, c);
+  };
+}
+
+function renderQRGenerado(content, client){
+  const url = window.location.origin + window.location.pathname + '?modo=cliente&id=' + client.id;
+  const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(url);
+  content.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <h2>✅ Datos guardados — Ahora que el cliente escanee este QR</h2>
+      <p class="muted">Entregá el celular del cliente (o que lo escanee con el suyo) para que complete: confirmación de email, foto biométrica y ubicación GPS.</p>
+      <div style="background:#fff;padding:16px;border-radius:10px;display:inline-block;margin:14px 0;">
+        <img src="${qrImgUrl}" alt="QR" style="width:240px;height:240px;">
+      </div>
+      <p class="muted" style="word-break:break-all;">Link directo: ${url}</p>
+      <div class="flex" style="justify-content:center;margin-top:14px;">
+        <button class="btn btn-primary btn-sm" id="btnNuevoRegistro">+ Cargar otro cliente</button>
+        <button class="btn btn-ghost btn-sm" id="btnVerPendientes">Ver en Panel Vendedor</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btnNuevoRegistro').onclick = ()=>{
+    window.__draftCreated = null;
+    window.__draftClient = newClientRecord();
+    render();
+  };
+  document.getElementById('btnVerPendientes').onclick = ()=>{
+    window.__draftCreated = null;
+    STATE.tab = 'vendedor';
+    render();
+  };
+}
+
+// ---------------- TAB: CLIENTE COMPLETA DESDE SU CELULAR ----------------
+function renderClienteCompletar(content, clientId){
+  const cl = STATE.clients.find(c=>c.id===clientId);
+
+  if(!cl){
+    content.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <h2>⏳ Cargando...</h2>
+        <p class="muted">Si este mensaje no desaparece, pedile al vendedor que verifique el código QR, o esperá unos segundos a que se sincronice.</p>
+      </div>
+    `;
+    // Reintenta una vez que Firestore sincronice
+    setTimeout(()=>{ if(new URLSearchParams(window.location.search).get('id')===clientId) render(); }, 1500);
+    return;
+  }
+
+  if(['pendiente_aprobacion','aprobado','cuota1_pagada','cuota2_pagada','completado'].includes(cl.status)){
+    content.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <h2>✅ ¡Listo, ${cl.nombre}!</h2>
+        <p class="muted">Ya completaste tu registro. Esperá que el vendedor revise tus datos en el mostrador para continuar con la firma y el pago.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if(!window.__clienteForm) window.__clienteForm = { emailConfirm:'', fotoDataUrl:null, gps:null, tycAceptado:false };
+  const f = window.__clienteForm;
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>Hola${cl.nombre?', '+cl.nombre:''} 👋</h2>
+      <p class="muted">Estás por completar tu registro para la reserva de: <b>${cl.equipo}</b></p>
+    </div>
+
+    <div class="card">
+      <h2>Paso 1 — Confirmá tu email</h2>
+      <p class="muted">Escribí el mismo email que le diste al vendedor, para verificar que sos vos.</p>
+      <label>Tu email</label>
+      <input id="f_emailConfirm" type="email" value="${f.emailConfirm}" placeholder="tu-email@ejemplo.com">
+      <div id="emailMatchMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Paso 2 — Foto biométrica en vivo</h2>
+      <p class="muted">Sacate una selfie ahora, dentro del local.</p>
+      <video id="video" autoplay playsinline style="display:none;"></video>
+      <img id="photoPreview" alt="foto" style="display:${f.fotoDataUrl?'block':'none'};" src="${f.fotoDataUrl||''}">
+      <div class="flex" style="margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" id="btnCam">📷 Activar cámara</button>
+        <button class="btn btn-primary btn-sm" id="btnShot" style="display:none;">Tomar foto</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Paso 3 — Ubicación</h2>
+      <button class="btn btn-ghost btn-sm" id="btnGps">📍 Capturar mi ubicación</button>
+      <p id="gpsResult" class="muted" style="margin-top:8px;">${f.gps? `✅ GPS: ${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}` : 'GPS no capturado aún'}</p>
+    </div>
+
+    <div class="card">
+      <label class="flex" style="align-items:flex-start;cursor:pointer;">
+        <input type="checkbox" id="f_tyc" style="width:auto;margin-top:3px;" ${f.tycAceptado?'checked':''}>
+        <span style="font-size:13px;">Leí y acepto los <b>Términos y Condiciones</b> del plan de reserva, incluyendo el uso de mi foto y ubicación para verificar mi identidad, según lo detallado en el contrato que voy a firmar en el mostrador.</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-success" id="btnFinalizar">Finalizar mi registro →</button>
+    </div>
+  `;
+
+  document.getElementById('f_emailConfirm').oninput = e=>{
+    f.emailConfirm = e.target.value;
+    const msg = document.getElementById('emailMatchMsg');
+    if(f.emailConfirm.length>3){
+      const match = f.emailConfirm.trim().toLowerCase() === (cl.emailVendedor||'').trim().toLowerCase();
+      msg.innerHTML = match ? '<p class="imei-ok">✔️ Email verificado correctamente.</p>' : '<p class="imei-warn">⚠️ El email no coincide con el que cargó el vendedor.</p>';
+    } else msg.innerHTML='';
+  };
 
   document.getElementById('btnCam').onclick = async ()=>{
     try{
@@ -394,9 +572,9 @@ function renderRegistro(content){
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video,0,0);
-    c.fotoDataUrl = canvas.toDataURL('image/jpeg',0.8);
+    f.fotoDataUrl = canvas.toDataURL('image/jpeg',0.8);
     const preview = document.getElementById('photoPreview');
-    preview.src = c.fotoDataUrl; preview.style.display='block';
+    preview.src = f.fotoDataUrl; preview.style.display='block';
     video.style.display='none';
     if(window.__camStream) window.__camStream.getTracks().forEach(t=>t.stop());
     toast('📸 Foto capturada');
@@ -404,52 +582,53 @@ function renderRegistro(content){
   document.getElementById('btnGps').onclick = ()=>{
     if(!navigator.geolocation){ toast('Geolocalización no soportada'); return; }
     navigator.geolocation.getCurrentPosition(pos=>{
-      c.gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, capturedAt: new Date().toISOString() };
-      document.getElementById('gpsResult').innerHTML = `✅ GPS: ${c.gps.lat.toFixed(5)}, ${c.gps.lng.toFixed(5)}`;
+      f.gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, capturedAt: new Date().toISOString() };
+      document.getElementById('gpsResult').innerHTML = `✅ GPS: ${f.gps.lat.toFixed(5)}, ${f.gps.lng.toFixed(5)}`;
       toast('📍 Ubicación capturada');
     }, err=>{ toast('Error GPS: '+err.message); }, {enableHighAccuracy:true});
   };
+  document.getElementById('f_tyc').onchange = e=>{ f.tycAceptado = e.target.checked; };
 
-  document.getElementById('btnSubmitClient').onclick = async ()=>{
-    if(!c.nombre || !c.dni){ toast('Completá nombre y DNI'); return; }
-    if(!c.equipo || !c.montoTotal){ toast('Completá el equipo y el monto'); return; }
-    if(!c.fotoDataUrl){ toast('Falta la foto biométrica'); return; }
-    if(!c.gps){ toast('Falta capturar el GPS del local'); return; }
-    const monto = calcCuotaMonto(c.montoTotal, c.interesFijo);
-    const today = new Date();
-    c.cuotas = [1,2,3].map(n=>{
-      const venc = new Date(today); venc.setDate(venc.getDate() + n*15);
-      return { n, monto, vencimiento: venc.toISOString(), pagado:false, pagadoAt:null, recargoAplicado:false };
-    });
-    c.status = 'pendiente_aprobacion';
-    STATE.clients.push(c);
+  document.getElementById('btnFinalizar').onclick = async ()=>{
+    const emailMatch = f.emailConfirm.trim().toLowerCase() === (cl.emailVendedor||'').trim().toLowerCase();
+    if(!f.emailConfirm){ toast('Escribí tu email'); return; }
+    if(!emailMatch){ toast('El email no coincide con el registrado por el vendedor. Verificalo.'); return; }
+    if(!f.fotoDataUrl){ toast('Falta tu foto biométrica'); return; }
+    if(!f.gps){ toast('Falta capturar tu ubicación GPS'); return; }
+    if(!f.tycAceptado){ toast('Tenés que aceptar los Términos y Condiciones'); return; }
+
+    cl.email = f.emailConfirm.trim();
+    cl.fotoDataUrl = f.fotoDataUrl;
+    cl.gps = f.gps;
+    cl.tycAceptadoAt = new Date().toISOString();
+    cl.status = 'pendiente_aprobacion';
+
+    const idx = STATE.clients.findIndex(x=>x.id===cl.id);
+    if(idx>=0) STATE.clients[idx] = cl;
     await saveDB(KEY_CLIENTS, STATE.clients);
-    addLog('registro_cliente', `${c.nombre} (DNI ${c.dni}) registró ${c.equipo}`);
-    sendEmailNotification('Nuevo registro de cliente - '+c.nombre, {
-      evento:'registro_cliente', nombre:c.nombre, dni:c.dni, telefono:c.telefono, email:c.email,
-      equipo:c.equipo, imei:c.imei, monto:c.montoTotal, interes:c.interesFijo,
-      gps: c.gps, fecha:new Date().toISOString()
+    addLog('cliente_completo_datos', `${cl.nombre} completó su registro desde su celular (email verificado)`);
+    sendEmailNotification('Cliente completó su registro - '+cl.nombre, {
+      evento:'cliente_completo_datos', nombre:cl.nombre, dni:cl.dni, email:cl.email,
+      equipo:cl.equipo, gps: cl.gps, fecha:new Date().toISOString()
     });
-    if(c.email){
-      sendClientEmail(c.email, 'Recibimos tu registro - '+STATE.settings.negocio,
-        'Hola ' + c.nombre + ',\n\n' +
-        'Recibimos tu registro para la reserva del equipo ' + c.equipo + ' en ' + STATE.settings.negocio + '.\n\n' +
-        'Un vendedor va a revisar tus datos en el local y te va a avisar cuando esté aprobado para continuar con la firma del contrato y el pago de la primera cuota.\n\n' +
-        'Gracias por elegirnos.'
-      );
-    }
-    window.__draftClient = newClientRecord();
-    toast('✅ Registro enviado. Esperá que el vendedor te llame.');
+    sendClientEmail(cl.email, 'Recibimos tu registro - '+STATE.settings.negocio,
+      'Hola ' + cl.nombre + ',\n\n' +
+      'Recibimos tu registro para la reserva del equipo ' + cl.equipo + ' en ' + STATE.settings.negocio + '.\n\n' +
+      'Un vendedor va a revisar tus datos en el local y te va a avisar cuando esté aprobado para continuar con la firma del contrato y el pago de la primera cuota.\n\n' +
+      'Gracias por elegirnos.'
+    );
+    window.__clienteForm = null;
     render();
   };
 }
 
-// ---------------- TAB: PANEL VENDEDOR ----------------
+
 function renderVendedor(content){
   if(!STATE.currentUser){
     renderPinLock(content);
     return;
   }
+  const esperandoCliente = STATE.clients.filter(c=>c.status==='pendiente_datos_cliente');
   const pendientes = STATE.clients.filter(c=>c.status==='pendiente_aprobacion');
   const activos = STATE.clients.filter(c=>['aprobado','cuota1_pagada','cuota2_pagada'].includes(c.status));
   const completos = STATE.clients.filter(c=>c.status==='completado');
@@ -461,10 +640,12 @@ function renderVendedor(content){
     </div>
 
     <div class="card">
-      <h2>📲 Registro desde el celular del cliente</h2>
-      <p class="muted">Generá un código QR para que el cliente escanee con su propio celular y complete sus datos, DNI y selfie biométrica desde ahí. Vos vas a ver el registro aparecer acá abajo, en "Pendientes de aprobación", automáticamente.</p>
-      <button class="btn btn-primary btn-sm" id="btnGenQR">Generar QR de registro</button>
-      <div id="qrBox" style="margin-top:14px;"></div>
+      <button class="btn btn-primary" id="btnNuevoCliente">+ Cargar nuevo cliente (datos + DNI)</button>
+    </div>
+
+    <div class="card">
+      <h2>📲 Esperando que el cliente complete desde su celular (${esperandoCliente.length})</h2>
+      ${esperandoCliente.length===0 ? '<p class="muted">No hay clientes esperando completar el QR.</p>' : esperandoCliente.map(cl=>renderClientListItem(cl)).join('')}
     </div>
 
     <div class="card">
@@ -485,15 +666,11 @@ function renderVendedor(content){
     <div id="clientDetail"></div>
   `;
   document.getElementById('btnLogout').onclick = ()=>{ STATE.currentUser=null; render(); };
-  document.getElementById('btnGenQR').onclick = ()=>{
-    const url = window.location.origin + window.location.pathname + '?modo=cliente';
-    const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(url);
-    document.getElementById('qrBox').innerHTML = `
-      <div style="text-align:center;background:#fff;padding:16px;border-radius:10px;display:inline-block;">
-        <img src="${qrImgUrl}" alt="QR de registro" style="width:220px;height:220px;">
-      </div>
-      <p class="muted" style="margin-top:8px;word-break:break-all;">Link directo: ${url}</p>
-    `;
+  document.getElementById('btnNuevoCliente').onclick = ()=>{
+    window.__draftCreated = null;
+    window.__draftClient = newClientRecord();
+    STATE.tab = 'registro';
+    render();
   };
   content.querySelectorAll('[data-openclient]').forEach(el=>{
     el.onclick = ()=>{ STATE.editingClientId = el.dataset.openclient; renderClientDetail(); };
@@ -503,7 +680,7 @@ function renderVendedor(content){
 
 function statusPill(status){
   const map = {
-    pendiente_registro:['pill-pend','Pendiente registro'],
+    pendiente_datos_cliente:['pill-pend','Esperando datos del cliente'],
     pendiente_aprobacion:['pill-pend','Pendiente aprobación'],
     aprobado:['pill-ok','Aprobado - Cuota 1 pendiente'],
     cuota1_pagada:['pill-ok','Cuota 1 pagada'],
@@ -534,6 +711,7 @@ function renderClientDetail(){
   if(!cl) return;
   const box = document.getElementById('clientDetail');
   const saldo = saldoPendiente(cl);
+  const emailMatch = cl.email && cl.emailVendedor && cl.email.trim().toLowerCase()===cl.emailVendedor.trim().toLowerCase();
   box.innerHTML = `
     <div class="card">
       <div class="space-between">
@@ -543,20 +721,36 @@ function renderClientDetail(){
       <div class="row">
         <div>
           <p><strong>DNI:</strong> ${cl.dni}</p>
-          <p><strong>Tel:</strong> ${cl.telefono||'-'} · <strong>Email:</strong> ${cl.email||'-'}</p>
+          <p><strong>Tel:</strong> ${cl.telefono||'-'}</p>
+          <p><strong>Email vendedor:</strong> ${cl.emailVendedor||'-'}</p>
+          <p><strong>Email confirmado por cliente:</strong> ${cl.email||'-'} ${cl.email ? (emailMatch ? '<span class="pill pill-ok">Coincide ✔️</span>' : '<span class="pill pill-mora">No coincide ⚠️</span>') : ''}</p>
           <p><strong>Equipo:</strong> ${cl.equipo} (IMEI ${cl.imei||'-'})</p>
           <p><strong>Monto total:</strong> $${cl.montoTotal} + ${cl.interesFijo}% interés</p>
           <p><strong>Saldo pendiente:</strong> $${saldo}</p>
-          <p><strong>Registrado:</strong> ${new Date(cl.createdAt).toLocaleString()}</p>
-          <p><strong>GPS del alta:</strong> ${cl.gps ? `${cl.gps.lat.toFixed(5)}, ${cl.gps.lng.toFixed(5)}` : '-'}</p>
+          <p><strong>Cargado por:</strong> ${cl.creadoPor||'-'} el ${new Date(cl.createdAt).toLocaleString()}</p>
+          <p><strong>GPS del cliente:</strong> ${cl.gps ? `${cl.gps.lat.toFixed(5)}, ${cl.gps.lng.toFixed(5)}` : '- (esperando que complete desde su celular)'}</p>
+          <p><strong>T&C aceptados:</strong> ${cl.tycAceptadoAt ? new Date(cl.tycAceptadoAt).toLocaleString() : '- (pendiente)'}</p>
         </div>
         <div>
-          ${cl.fotoDataUrl ? `<img src="${cl.fotoDataUrl}" style="width:100%;max-width:220px;border-radius:10px;">` : '<p class="muted">Sin foto</p>'}
+          <p class="muted" style="margin:0 0 4px;">DNI Frente</p>
+          ${cl.dniFrenteFoto ? `<img src="${cl.dniFrenteFoto}" style="width:100%;max-width:200px;border-radius:8px;margin-bottom:8px;">` : '<p class="muted">Sin foto</p>'}
+          <p class="muted" style="margin:0 0 4px;">DNI Dorso</p>
+          ${cl.dniDorsoFoto ? `<img src="${cl.dniDorsoFoto}" style="width:100%;max-width:200px;border-radius:8px;margin-bottom:8px;">` : '<p class="muted">Sin foto</p>'}
+          <p class="muted" style="margin:0 0 4px;">Selfie biométrica</p>
+          ${cl.fotoDataUrl ? `<img src="${cl.fotoDataUrl}" style="width:100%;max-width:200px;border-radius:8px;">` : '<p class="muted">Sin foto (esperando cliente)</p>'}
         </div>
       </div>
 
+      ${cl.status==='pendiente_datos_cliente' ? `
+        <div style="margin-top:14px;text-align:center;">
+          <p class="muted">Este cliente todavía no completó el registro desde su celular. Volvé a mostrarle el QR:</p>
+          <div id="qrReprint" style="background:#fff;padding:14px;border-radius:10px;display:inline-block;"></div>
+        </div>
+      ` : ''}
+
       ${cl.status==='pendiente_aprobacion' ? `
         <div style="margin-top:14px;">
+          ${!emailMatch ? '<p class="imei-warn">⚠️ El email del cliente NO coincide con el que cargaste vos. Revisá antes de aprobar.</p>' : '<p class="imei-ok">✔️ Email verificado correctamente.</p>'}
           <p class="muted">⚠️ Verificá el DNI físico contra la foto y los datos antes de aprobar.</p>
           <button class="btn btn-success" id="btnAprobar">✔️ Aprobar y generar pagaré</button>
           <button class="btn btn-danger" id="btnRechazar">✖️ Rechazar</button>
@@ -579,6 +773,12 @@ function renderClientDetail(){
     </div>
   `;
   document.getElementById('btnCloseDetail').onclick = ()=>{ STATE.editingClientId=null; render(); };
+
+  if(cl.status==='pendiente_datos_cliente'){
+    const url = window.location.origin + window.location.pathname + '?modo=cliente&id=' + cl.id;
+    const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    document.getElementById('qrReprint').innerHTML = `<img src="${qrImgUrl}" style="width:200px;height:200px;">`;
+  }
 
   if(cl.status==='pendiente_aprobacion'){
     document.getElementById('btnAprobar').onclick = async ()=>{
