@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema de Preventa - Control de Local</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GD6LTHH3ZP"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-GD6LTHH3ZP');
+</script>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --border:#2a2f3a;
@@ -126,6 +133,19 @@ function sendEmailNotification(subject, bodyObj){
   emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params)
     .then(()=>console.log('Email enviado:', subject))
     .catch(err=>console.error('Error enviando email', err));
+}
+
+// Email amigable al cliente (sin datos técnicos internos del sistema)
+function sendClientEmail(clienteEmail, subject, mensajeHtml){
+  if(!EMAILJS_READY || !clienteEmail) return;
+  const params = {
+    to_email: clienteEmail,
+    subject: subject,
+    message: mensajeHtml
+  };
+  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params)
+    .then(()=>console.log('Email al cliente enviado:', subject))
+    .catch(err=>console.error('Error enviando email al cliente', err));
 }
 
 // ---------------- STORAGE HELPERS (Firebase Firestore) ----------------
@@ -251,6 +271,20 @@ function checkImei(imei){
 // ---------------- RENDER ----------------
 function render(){
   const app = document.getElementById('app');
+  const isClientMode = new URLSearchParams(window.location.search).get('modo') === 'cliente';
+
+  if(isClientMode){
+    app.innerHTML = `
+      <header>
+        <h1>📱 ${STATE.settings.negocio}</h1>
+        <span class="badge" style="color:${FIREBASE_READY?'var(--accent2)':'var(--danger)'};">${FIREBASE_READY?'☁️ Conectado':'⚠️ Sin conexión'}</span>
+      </header>
+      <div id="content"></div>
+    `;
+    renderRegistro(document.getElementById('content'));
+    return;
+  }
+
   app.innerHTML = `
     <header>
       <h1>📱 ${STATE.settings.negocio} — Sistema de Preventa</h1>
@@ -396,6 +430,14 @@ function renderRegistro(content){
       equipo:c.equipo, imei:c.imei, monto:c.montoTotal, interes:c.interesFijo,
       gps: c.gps, fecha:new Date().toISOString()
     });
+    if(c.email){
+      sendClientEmail(c.email, 'Recibimos tu registro - '+STATE.settings.negocio,
+        'Hola ' + c.nombre + ',\n\n' +
+        'Recibimos tu registro para la reserva del equipo ' + c.equipo + ' en ' + STATE.settings.negocio + '.\n\n' +
+        'Un vendedor va a revisar tus datos en el local y te va a avisar cuando esté aprobado para continuar con la firma del contrato y el pago de la primera cuota.\n\n' +
+        'Gracias por elegirnos.'
+      );
+    }
     window.__draftClient = newClientRecord();
     toast('✅ Registro enviado. Esperá que el vendedor te llame.');
     render();
@@ -419,6 +461,13 @@ function renderVendedor(content){
     </div>
 
     <div class="card">
+      <h2>📲 Registro desde el celular del cliente</h2>
+      <p class="muted">Generá un código QR para que el cliente escanee con su propio celular y complete sus datos, DNI y selfie biométrica desde ahí. Vos vas a ver el registro aparecer acá abajo, en "Pendientes de aprobación", automáticamente.</p>
+      <button class="btn btn-primary btn-sm" id="btnGenQR">Generar QR de registro</button>
+      <div id="qrBox" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
       <h2>🟡 Pendientes de aprobación (${pendientes.length})</h2>
       ${pendientes.length===0 ? '<p class="muted">No hay clientes esperando aprobación.</p>' : pendientes.map(cl=>renderClientListItem(cl)).join('')}
     </div>
@@ -436,6 +485,16 @@ function renderVendedor(content){
     <div id="clientDetail"></div>
   `;
   document.getElementById('btnLogout').onclick = ()=>{ STATE.currentUser=null; render(); };
+  document.getElementById('btnGenQR').onclick = ()=>{
+    const url = window.location.origin + window.location.pathname + '?modo=cliente';
+    const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(url);
+    document.getElementById('qrBox').innerHTML = `
+      <div style="text-align:center;background:#fff;padding:16px;border-radius:10px;display:inline-block;">
+        <img src="${qrImgUrl}" alt="QR de registro" style="width:220px;height:220px;">
+      </div>
+      <p class="muted" style="margin-top:8px;word-break:break-all;">Link directo: ${url}</p>
+    `;
+  };
   content.querySelectorAll('[data-openclient]').forEach(el=>{
     el.onclick = ()=>{ STATE.editingClientId = el.dataset.openclient; renderClientDetail(); };
   });
