@@ -795,77 +795,120 @@ function renderConfig(content){
 }
 
 // ---------------- PRINT DOCUMENTS ----------------
-function printPagare(cl){
+function docNumber(cl, prefix){
+  return prefix + '-' + cl.id.replace('c_','').toUpperCase().slice(0,6);
+}
+
+function printShell(title, bodyHtml){
   const w = window.open('', '_blank');
-  w.document.write(`
-    <html><head><title>Pagaré - ${cl.nombre}</title></head>
-    <body style="font-family:Arial;padding:30px;color:#111;">
-      <h2 style="text-align:center;">CONTRATO DE RESERVA / COMPRA EN CUOTAS</h2>
-      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
-      <hr>
-      <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
-      <p><strong>Cliente:</strong> ${cl.nombre} — DNI/Pasaporte: ${cl.dni}</p>
-      <p><strong>Teléfono:</strong> ${cl.telefono||'-'} · <strong>Email:</strong> ${cl.email||'-'}</p>
-      <p><strong>Equipo reservado:</strong> ${cl.equipo}</p>
-      <p><strong>IMEI:</strong> ${cl.imei||'-'}</p>
-      <p><strong>Monto total del equipo:</strong> $${cl.montoTotal}</p>
-      <p><strong>Interés fijo aplicado:</strong> ${cl.interesFijo}%</p>
-      <table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;margin-top:10px;">
-        <tr><th>Cuota</th><th>Monto</th><th>Fecha de vencimiento</th></tr>
-        ${cl.cuotas.map(c=>`<tr><td>${c.n}</td><td>$${c.monto}</td><td>${new Date(c.vencimiento).toLocaleDateString()}</td></tr>`).join('')}
-      </table>
-      <p style="margin-top:20px;font-size:12px;">El presente documento certifica que el cliente arriba mencionado reservó el equipo detallado, comprometiéndose a abonar el total en 3 (tres) cuotas según el cronograma indicado. En caso de mora en el pago de cualquier cuota, se aplicará un recargo del ${STATE.settings.moraPct}% sobre el monto adeudado. El equipo será entregado únicamente al finalizar el pago total de las 3 cuotas.</p>
-      <p style="font-size:11px;color:#777;">Registro biométrico y GPS verificados en el local al momento del alta. Aprobado por: ${cl.aprobadoPor||'-'} el ${cl.aprobadoAt? new Date(cl.aprobadoAt).toLocaleString():'-'}.</p>
-      <div style="display:flex;justify-content:space-between;margin-top:80px;">
-        <div style="text-align:center;width:45%;border-top:1px solid #111;padding-top:6px;">Firma del Cliente</div>
-        <div style="text-align:center;width:45%;border-top:1px solid #111;padding-top:6px;">Firma del Vendedor</div>
-      </div>
-      <script>window.print();</script>
-    </body></html>
-  `);
+  const html = [
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>', title, '</title>',
+    '<style>',
+    '@page{margin:18mm;}',
+    'body{font-family:Georgia,\'Times New Roman\',serif;color:#1a1a1a;max-width:720px;margin:0 auto;padding:20px 10px;}',
+    '.doc-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a1a1a;padding-bottom:14px;margin-bottom:20px;}',
+    '.doc-header .biz{font-size:20px;font-weight:bold;letter-spacing:0.5px;}',
+    '.doc-header .biz-sub{font-size:11px;color:#666;margin-top:2px;font-family:Arial,sans-serif;}',
+    '.doc-header .docmeta{text-align:right;font-family:Arial,sans-serif;font-size:11px;color:#444;}',
+    '.doc-title{text-align:center;font-size:16px;font-weight:bold;letter-spacing:1px;margin:6px 0 20px;text-transform:uppercase;font-family:Arial,sans-serif;}',
+    '.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-family:Arial,sans-serif;font-size:12.5px;margin-bottom:18px;}',
+    '.info-grid .full{grid-column:1/3;}',
+    '.info-grid b{color:#000;}',
+    '.info-label{color:#666;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:1px;}',
+    'table.doc-table{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin:14px 0;}',
+    'table.doc-table th{background:#1a1a1a;color:#fff;padding:8px 10px;text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;}',
+    'table.doc-table td{padding:8px 10px;border-bottom:1px solid #ddd;}',
+    'table.doc-table tr:last-child td{border-bottom:none;}',
+    '.legal-text{font-family:Arial,sans-serif;font-size:10.5px;color:#444;line-height:1.6;margin-top:16px;text-align:justify;}',
+    '.stamp{font-family:Arial,sans-serif;font-size:10px;color:#888;margin-top:10px;border-top:1px dashed #ccc;padding-top:8px;}',
+    '.signatures{display:flex;justify-content:space-between;margin-top:70px;font-family:Arial,sans-serif;}',
+    '.sig-box{width:44%;text-align:center;}',
+    '.sig-box .line{border-top:1px solid #1a1a1a;padding-top:6px;font-size:11px;}',
+    '.sig-box .sub{font-size:9.5px;color:#888;margin-top:2px;}',
+    '.status-banner{font-family:Arial,sans-serif;text-align:center;font-weight:bold;font-size:13px;padding:10px;border:2px solid #1a7a3c;color:#1a7a3c;border-radius:6px;margin:16px 0;background:#f0faf3;}',
+    '.footer-note{text-align:center;font-family:Arial,sans-serif;font-size:9.5px;color:#aaa;margin-top:30px;}',
+    '</style></head><body>',
+    bodyHtml,
+    '<div class="footer-note">Documento generado digitalmente por el sistema de preventa de ', STATE.settings.negocio, '</div>',
+    '<script>window.onload=function(){window.print();};</' + 'script>',
+    '</body></html>'
+  ].join('');
+  w.document.write(html);
   w.document.close();
+}
+
+function printPagare(cl){
+  const docNo = docNumber(cl,'PAG');
+  const rows = cl.cuotas.map(function(c){
+    return '<tr><td>Cuota ' + c.n + ' de 3</td><td>$' + c.monto + '</td><td>' + new Date(c.vencimiento).toLocaleDateString() + '</td></tr>';
+  }).join('');
+  const body = [
+    '<div class="doc-header">',
+      '<div><div class="biz">', STATE.settings.negocio, '</div><div class="biz-sub">Venta de equipos en plan de cuotas</div></div>',
+      '<div class="docmeta">Documento N&deg; ', docNo, '<br>Fecha de emisi&oacute;n: ', new Date().toLocaleDateString(), '</div>',
+    '</div>',
+    '<div class="doc-title">Contrato de Reserva y Compra en Cuotas</div>',
+    '<div class="info-grid">',
+      '<div><span class="info-label">Cliente</span><b>', cl.nombre, '</b></div>',
+      '<div><span class="info-label">DNI / Pasaporte</span><b>', cl.dni, '</b></div>',
+      '<div><span class="info-label">Tel&eacute;fono</span>', (cl.telefono||'-'), '</div>',
+      '<div><span class="info-label">Email</span>', (cl.email||'-'), '</div>',
+      '<div><span class="info-label">Equipo reservado</span><b>', cl.equipo, '</b></div>',
+      '<div><span class="info-label">IMEI</span>', (cl.imei||'-'), '</div>',
+      '<div><span class="info-label">Monto total del equipo</span>$', cl.montoTotal, '</div>',
+      '<div><span class="info-label">Inter&eacute;s fijo aplicado</span>', cl.interesFijo, '%</div>',
+    '</div>',
+    '<table class="doc-table"><tr><th>Concepto</th><th>Monto</th><th>Vencimiento</th></tr>', rows, '</table>',
+    '<p class="legal-text">El presente documento certifica que el/la cliente arriba mencionado/a reserv&oacute; el equipo detallado, comprometi&eacute;ndose a abonar el total en tres (3) cuotas seg&uacute;n el cronograma indicado. En caso de mora en el pago de cualquier cuota, se aplicar&aacute; un recargo del ', STATE.settings.moraPct, '% sobre el monto adeudado de esa cuota. El equipo ser&aacute; entregado &uacute;nicamente al finalizar el pago total de las tres cuotas pactadas.</p>',
+    '<div class="stamp">Registro biom&eacute;trico y georreferenciado verificado dentro del local al momento del alta &middot; Aprobado por: ', (cl.aprobadoPor||'-'), ' el ', (cl.aprobadoAt? new Date(cl.aprobadoAt).toLocaleString():'-'), '</div>',
+    '<div class="signatures">',
+      '<div class="sig-box"><div class="line">Firma del Cliente</div><div class="sub">DNI ', cl.dni, '</div></div>',
+      '<div class="sig-box"><div class="line">Firma del Vendedor</div><div class="sub">', (cl.aprobadoPor||STATE.currentUser.name), '</div></div>',
+    '</div>'
+  ].join('');
+  printShell('Pagare ' + cl.nombre, body);
 }
 
 function printRecibo(cl, cuota){
-  const w = window.open('', '_blank');
+  const docNo = docNumber(cl,'REC') + '-C' + cuota.n;
   const montoFinal = cuota.recargoAplicado ? Math.round(cuota.monto*(1+STATE.settings.moraPct/100)*100)/100 : cuota.monto;
-  w.document.write(`
-    <html><head><title>Recibo Cuota ${cuota.n}</title></head>
-    <body style="font-family:Arial;padding:30px;color:#111;">
-      <h2 style="text-align:center;">RECIBO DE PAGO — CUOTA ${cuota.n}/3</h2>
-      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
-      <hr>
-      <p><strong>Cliente:</strong> ${cl.nombre} — DNI: ${cl.dni}</p>
-      <p><strong>Equipo:</strong> ${cl.equipo}</p>
-      <p><strong>Cuota:</strong> ${cuota.n} de 3</p>
-      <p><strong>Monto abonado:</strong> $${montoFinal} ${cuota.recargoAplicado?`(incluye recargo por mora del ${STATE.settings.moraPct}%)`:''}</p>
-      <p><strong>Fecha de pago:</strong> ${new Date().toLocaleString()}</p>
-      <p><strong>Recibido por:</strong> ${STATE.currentUser.name}</p>
-      <p><strong>Saldo pendiente:</strong> $${saldoPendiente(cl)}</p>
-      ${cl.status==='completado' ? '<p style="font-weight:bold;color:green;">✔️ PLAN COMPLETADO — Equipo habilitado para entrega</p>' : ''}
-      <div style="margin-top:60px;border-top:1px solid #111;width:45%;text-align:center;padding-top:6px;">Firma / Sello</div>
-      <script>window.print();</script>
-    </body></html>
-  `);
-  w.document.close();
+  const body = [
+    '<div class="doc-header">',
+      '<div><div class="biz">', STATE.settings.negocio, '</div><div class="biz-sub">Comprobante de pago</div></div>',
+      '<div class="docmeta">Recibo N&deg; ', docNo, '<br>', new Date().toLocaleString(), '</div>',
+    '</div>',
+    '<div class="doc-title">Recibo de Pago &mdash; Cuota ', cuota.n, ' de 3</div>',
+    '<div class="info-grid">',
+      '<div><span class="info-label">Cliente</span><b>', cl.nombre, '</b></div>',
+      '<div><span class="info-label">DNI</span>', cl.dni, '</div>',
+      '<div class="full"><span class="info-label">Equipo</span>', cl.equipo, '</div>',
+      '<div><span class="info-label">Monto abonado</span><b>$', montoFinal, '</b></div>',
+      '<div><span class="info-label">Recibido por</span>', STATE.currentUser.name, '</div>',
+    '</div>',
+    cuota.recargoAplicado ? '<p class="legal-text"><b>Incluye recargo por mora del ' + STATE.settings.moraPct + '%</b> aplicado sobre esta cuota por atraso en el pago.</p>' : '',
+    '<table class="doc-table"><tr><th>Concepto</th><th>Detalle</th></tr>',
+      '<tr><td>Saldo pendiente restante</td><td>$', saldoPendiente(cl), '</td></tr>',
+    '</table>',
+    cl.status==='completado' ? '<div class="status-banner">PLAN COMPLETADO &mdash; Equipo habilitado para entrega</div>' : '',
+    '<div class="signatures"><div class="sig-box"><div class="line">Firma / Sello</div><div class="sub">', STATE.settings.negocio, '</div></div><div class="sig-box"></div></div>'
+  ].join('');
+  printShell('Recibo Cuota ' + cuota.n, body);
 }
 
 function printConstancia(cl){
-  const w = window.open('', '_blank');
-  w.document.write(`
-    <html><head><title>Constancia de Cancelación</title></head>
-    <body style="font-family:Arial;padding:30px;color:#111;">
-      <h2 style="text-align:center;">CONSTANCIA DE CANCELACIÓN TOTAL</h2>
-      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
-      <hr>
-      <p>Se certifica que <strong>${cl.nombre}</strong> (DNI ${cl.dni}) ha cancelado en su totalidad el plan de pagos correspondiente al equipo <strong>${cl.equipo}</strong> (IMEI ${cl.imei}), habiendo abonado las 3 (tres) cuotas pactadas.</p>
-      <p>Fecha de cancelación total: ${new Date().toLocaleDateString()}</p>
-      <p style="font-weight:bold;color:green;margin-top:20px;">✔️ EQUIPO HABILITADO PARA ENTREGA AL CLIENTE</p>
-      <div style="margin-top:60px;border-top:1px solid #111;width:45%;text-align:center;padding-top:6px;">Firma / Sello del vendedor</div>
-      <script>window.print();</script>
-    </body></html>
-  `);
-  w.document.close();
+  const docNo = docNumber(cl,'CANC');
+  const body = [
+    '<div class="doc-header">',
+      '<div><div class="biz">', STATE.settings.negocio, '</div><div class="biz-sub">Constancia oficial</div></div>',
+      '<div class="docmeta">Documento N&deg; ', docNo, '<br>', new Date().toLocaleDateString(), '</div>',
+    '</div>',
+    '<div class="doc-title">Constancia de Cancelaci&oacute;n Total</div>',
+    '<p class="legal-text" style="font-size:12px;">Se certifica que <b>', cl.nombre, '</b> (DNI ', cl.dni, ') ha cancelado en su totalidad el plan de pagos correspondiente al equipo <b>', cl.equipo, '</b> (IMEI ', (cl.imei||'-'), '), habiendo abonado las tres (3) cuotas pactadas en el contrato de reserva original.</p>',
+    '<div class="info-grid"><div><span class="info-label">Fecha de cancelaci&oacute;n total</span>', new Date().toLocaleDateString(), '</div><div><span class="info-label">Vendedor</span>', STATE.currentUser.name, '</div></div>',
+    '<div class="status-banner">EQUIPO HABILITADO PARA ENTREGA AL CLIENTE</div>',
+    '<div class="signatures"><div class="sig-box"><div class="line">Firma / Sello del Vendedor</div></div><div class="sig-box"><div class="line">Firma de Conformidad del Cliente</div></div></div>'
+  ].join('');
+  printShell('Constancia de Cancelacion', body);
 }
 
 // ---------------- INIT ----------------
