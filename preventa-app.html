@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Preventa - Control de Local</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --border:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa3b2; --accent:#4f8cff; --accent2:#2ecf8f;
+    --warn:#ffb84f; --danger:#ff5c5c; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  #app{max-width:1100px;margin:0 auto;padding:16px;}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  header h1{font-size:18px;margin:0;}
+  header .badge{font-size:11px;color:var(--muted);background:var(--panel2);padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
+  nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+  nav button{background:var(--panel);color:var(--muted);border:1px solid var(--border);padding:9px 14px;border-radius:10px;cursor:pointer;font-size:13px;}
+  nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--text);}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px;}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:14px;}
+  textarea{resize:vertical;min-height:60px;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.row{grid-template-columns:1fr;}}
+  button.btn{cursor:pointer;border:none;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-success{background:var(--accent2);color:#04231a;}
+  .btn-warn{background:var(--warn);color:#2a1900;}
+  .btn-danger{background:var(--danger);color:#2a0000;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn-sm{padding:7px 12px;font-size:12px;}
+  .muted{color:var(--muted);font-size:12px;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .pill-pend{background:#3a2f10;color:var(--warn);}
+  .pill-ok{background:#0f2e22;color:var(--accent2);}
+  .pill-mora{background:#3a1010;color:var(--danger);}
+  .pill-done{background:#132540;color:var(--accent);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;}
+  .client-list-item{padding:12px;background:var(--panel2);border-radius:10px;margin-bottom:8px;border:1px solid var(--border);cursor:pointer;}
+  .client-list-item:hover{border-color:var(--accent);}
+  .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .space-between{display:flex;justify-content:space-between;align-items:center;}
+  video,#photoPreview{width:100%;max-width:320px;border-radius:10px;background:#000;}
+  #photoPreview{display:none;}
+  .stat{background:var(--panel2);border-radius:10px;padding:14px;text-align:center;}
+  .stat .num{font-size:24px;font-weight:700;}
+  .stat .lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  @media(max-width:640px){.grid4{grid-template-columns:repeat(2,1fr);}}
+  .lockscreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;}
+  .pindots{display:flex;gap:10px;margin:20px 0;}
+  .pindot{width:14px;height:14px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);}
+  .pindot.filled{background:var(--accent);}
+  .keypad{display:grid;grid-template-columns:repeat(3,70px);gap:12px;}
+  .keypad button{width:70px;height:70px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);color:var(--text);font-size:20px;}
+  #printArea{display:none;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+  .doc-frame{background:#fff;color:#111;padding:24px;border-radius:8px;font-size:12px;line-height:1.5;}
+  .doc-frame h3{text-align:center;margin-bottom:4px;}
+  .doc-frame table{font-size:11px;}
+  .doc-frame td,.doc-frame th{border:1px solid #ccc;padding:6px;color:#111;}
+  .sig-line{border-top:1px solid #111;margin-top:60px;padding-top:6px;text-align:center;font-size:11px;}
+  code{background:var(--panel2);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--accent2);}
+  pre{background:var(--panel2);padding:12px;border-radius:8px;overflow:auto;font-size:11px;max-height:300px;}
+  .imei-warn{color:var(--danger);font-size:12px;margin-top:4px;}
+  .imei-ok{color:var(--accent2);font-size:12px;margin-top:4px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="printArea"></div>
+<script>
+// ---------------- STORAGE HELPERS ----------------
+const KEY_CLIENTS = 'preventa:clients';
+const KEY_USERS = 'preventa:users';
+const KEY_LOG = 'preventa:auditlog';
+const KEY_SETTINGS = 'preventa:settings';
+
+async function loadDB(key, fallback){
+  try{
+    const r = await window.storage.get(key, false);
+    return r ? JSON.parse(r.value) : fallback;
+  }catch(e){ return fallback; }
+}
+async function saveDB(key, value){
+  try{ await window.storage.set(key, JSON.stringify(value), false); }catch(e){ console.error('storage error', e); }
+}
+
+let STATE = {
+  clients: [],
+  users: [ { id:'u1', name:'Admin', pin:'1234', role:'admin' } ],
+  log: [],
+  settings: { moraPct: 10, negocio: 'Mi Local', imeiBlacklist: [] },
+  currentUser: null,
+  tab: 'registro',
+  editingClientId: null,
+  photoDataUrl: null,
+  gps: null
+};
+
+async function initState(){
+  STATE.clients = await loadDB(KEY_CLIENTS, []);
+  const u = await loadDB(KEY_USERS, null);
+  STATE.users = u || STATE.users;
+  STATE.log = await loadDB(KEY_LOG, []);
+  const s = await loadDB(KEY_SETTINGS, null);
+  STATE.settings = s || STATE.settings;
+  render();
+}
+
+function uid(){ return 'c_' + Math.random().toString(36).slice(2,10); }
+
+function addLog(action, detail){
+  STATE.log.unshift({
+    id: uid(), ts: new Date().toISOString(), user: STATE.currentUser ? STATE.currentUser.name : 'Cliente',
+    action, detail
+  });
+  saveDB(KEY_LOG, STATE.log);
+}
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2600);
+}
+
+// ---------------- BUSINESS LOGIC ----------------
+function newClientRecord(){
+  return {
+    id: uid(),
+    createdAt: new Date().toISOString(),
+    nombre:'', dni:'', telefono:'', email:'',
+    equipo:'', imei:'', montoTotal:0, interesFijo:0,
+    fotoDataUrl:null, gps:null,
+    status:'pendiente_registro', // pendiente_registro -> pendiente_aprobacion -> aprobado -> cuota1_pagada -> cuota2_pagada -> completado -> cancelado
+    aprobadoPor:null, aprobadoAt:null,
+    cuotas: [
+      { n:1, monto:0, vencimiento:null, pagado:false, pagadoAt:null, recargoAplicado:false },
+      { n:2, monto:0, vencimiento:null, pagado:false, pagadoAt:null, recargoAplicado:false },
+      { n:3, monto:0, vencimiento:null, pagado:false, pagadoAt:null, recargoAplicado:false }
+    ],
+    entregado:false, entregadoAt:null, entregadoPor:null
+  };
+}
+
+function calcCuotaMonto(total, interes){
+  const conInteres = Number(total) * (1 + Number(interes)/100);
+  return Math.round((conInteres/3) * 100)/100;
+}
+
+function saldoPendiente(cliente){
+  let saldo = 0;
+  cliente.cuotas.forEach(c=>{
+    if(!c.pagado){
+      let m = c.monto;
+      if(c.recargoAplicado) m = m * (1 + STATE.settings.moraPct/100);
+      saldo += m;
+    }
+  });
+  return Math.round(saldo*100)/100;
+}
+
+function checkImei(imei){
+  return STATE.settings.imeiBlacklist.includes(imei.trim());
+}
+
+// ---------------- RENDER ----------------
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header>
+      <h1>📱 ${STATE.settings.negocio} — Sistema de Preventa</h1>
+      <span class="badge">${STATE.currentUser ? '👤 '+STATE.currentUser.name+' (Vendedor)' : 'Modo Cliente'}</span>
+    </header>
+    <nav>
+      <button data-tab="registro" class="${STATE.tab==='registro'?'active':''}">📝 Registro Cliente</button>
+      <button data-tab="vendedor" class="${STATE.tab==='vendedor'?'active':''}">🔐 Panel Vendedor</button>
+      <button data-tab="dashboard" class="${STATE.tab==='dashboard'?'active':''}">📊 Dashboard</button>
+      <button data-tab="integracion" class="${STATE.tab==='integracion'?'active':''}">🔗 Integración</button>
+      <button data-tab="config" class="${STATE.tab==='config'?'active':''}">⚙️ Configuración</button>
+    </nav>
+    <div id="content"></div>
+  `;
+  document.querySelectorAll('nav button').forEach(b=>{
+    b.onclick = ()=>{ STATE.tab = b.dataset.tab; STATE.editingClientId=null; render(); };
+  });
+  const content = document.getElementById('content');
+  if(STATE.tab==='registro') renderRegistro(content);
+  if(STATE.tab==='vendedor') renderVendedor(content);
+  if(STATE.tab==='dashboard') renderDashboard(content);
+  if(STATE.tab==='integracion') renderIntegracion(content);
+  if(STATE.tab==='config') renderConfig(content);
+}
+
+// ---------------- TAB: REGISTRO CLIENTE ----------------
+function renderRegistro(content){
+  const draftKey = '__draft';
+  if(!window.__draftClient) window.__draftClient = newClientRecord();
+  const c = window.__draftClient;
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>Paso 1 — Datos del Cliente</h2>
+      <div class="row">
+        <div><label>Nombre y Apellido</label><input id="f_nombre" value="${c.nombre}"></div>
+        <div><label>DNI / Pasaporte</label><input id="f_dni" value="${c.dni}"></div>
+      </div>
+      <div class="row">
+        <div><label>Teléfono</label><input id="f_tel" value="${c.telefono}"></div>
+        <div><label>Email (opcional)</label><input id="f_email" value="${c.email}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Paso 2 — Servicio / Equipo Reservado</h2>
+      <div class="row">
+        <div><label>Equipo (modelo)</label><input id="f_equipo" value="${c.equipo}" placeholder="Ej: iPhone 13 128GB"></div>
+        <div><label>IMEI</label><input id="f_imei" value="${c.imei}" placeholder="15 dígitos"></div>
+      </div>
+      <div id="imeiCheckMsg"></div>
+      <div class="row">
+        <div><label>Monto total del equipo ($)</label><input id="f_monto" type="number" value="${c.montoTotal||''}"></div>
+        <div><label>Interés fijo total (%)</label><input id="f_interes" type="number" value="${c.interesFijo||''}"></div>
+      </div>
+      <p class="muted">Se dividirá en 3 cuotas iguales sobre el monto + interés.</p>
+    </div>
+
+    <div class="card">
+      <h2>Paso 3 — Biometría Presencial + Geolocalización</h2>
+      <p class="muted">Se debe tomar la selfie EN VIVO dentro del local. Se registrará GPS automáticamente.</p>
+      <div class="flex">
+        <video id="video" autoplay playsinline style="display:none;"></video>
+        <img id="photoPreview" alt="foto"/>
+      </div>
+      <div class="flex" style="margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" id="btnCam">📷 Activar Cámara</button>
+        <button class="btn btn-primary btn-sm" id="btnShot" style="display:none;">Tomar Foto</button>
+        <button class="btn btn-ghost btn-sm" id="btnGps">📍 Capturar Ubicación GPS</button>
+      </div>
+      <p id="gpsResult" class="muted" style="margin-top:8px;">${c.gps? `✅ GPS: ${c.gps.lat.toFixed(5)}, ${c.gps.lng.toFixed(5)}` : 'GPS no capturado aún'}</p>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-success" id="btnSubmitClient">Enviar registro para aprobación del vendedor →</button>
+    </div>
+  `;
+
+  document.getElementById('f_nombre').oninput = e=>c.nombre=e.target.value;
+  document.getElementById('f_dni').oninput = e=>c.dni=e.target.value;
+  document.getElementById('f_tel').oninput = e=>c.telefono=e.target.value;
+  document.getElementById('f_email').oninput = e=>c.email=e.target.value;
+  document.getElementById('f_equipo').oninput = e=>c.equipo=e.target.value;
+  document.getElementById('f_imei').oninput = e=>{
+    c.imei=e.target.value;
+    const msg = document.getElementById('imeiCheckMsg');
+    if(c.imei.length>=6){
+      if(checkImei(c.imei)) msg.innerHTML = `<p class="imei-warn">⚠️ Este IMEI figura en la lista negra del local. Revisar antes de continuar.</p>`;
+      else msg.innerHTML = `<p class="imei-ok">✔️ IMEI no está en lista negra.</p>`;
+    } else msg.innerHTML='';
+  };
+  document.getElementById('f_monto').oninput = e=>c.montoTotal=Number(e.target.value);
+  document.getElementById('f_interes').oninput = e=>c.interesFijo=Number(e.target.value);
+
+  document.getElementById('btnCam').onclick = async ()=>{
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+      const video = document.getElementById('video');
+      video.srcObject = stream; video.style.display='block';
+      document.getElementById('btnShot').style.display='inline-block';
+      window.__camStream = stream;
+    }catch(e){ toast('No se pudo acceder a la cámara: '+e.message); }
+  };
+  document.getElementById('btnShot').onclick = ()=>{
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);
+    c.fotoDataUrl = canvas.toDataURL('image/jpeg',0.8);
+    const preview = document.getElementById('photoPreview');
+    preview.src = c.fotoDataUrl; preview.style.display='block';
+    video.style.display='none';
+    if(window.__camStream) window.__camStream.getTracks().forEach(t=>t.stop());
+    toast('📸 Foto capturada');
+  };
+  document.getElementById('btnGps').onclick = ()=>{
+    if(!navigator.geolocation){ toast('Geolocalización no soportada'); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      c.gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, capturedAt: new Date().toISOString() };
+      document.getElementById('gpsResult').innerHTML = `✅ GPS: ${c.gps.lat.toFixed(5)}, ${c.gps.lng.toFixed(5)}`;
+      toast('📍 Ubicación capturada');
+    }, err=>{ toast('Error GPS: '+err.message); }, {enableHighAccuracy:true});
+  };
+
+  document.getElementById('btnSubmitClient').onclick = async ()=>{
+    if(!c.nombre || !c.dni){ toast('Completá nombre y DNI'); return; }
+    if(!c.equipo || !c.montoTotal){ toast('Completá el equipo y el monto'); return; }
+    if(!c.fotoDataUrl){ toast('Falta la foto biométrica'); return; }
+    if(!c.gps){ toast('Falta capturar el GPS del local'); return; }
+    const monto = calcCuotaMonto(c.montoTotal, c.interesFijo);
+    const today = new Date();
+    c.cuotas = [1,2,3].map(n=>{
+      const venc = new Date(today); venc.setDate(venc.getDate() + n*15);
+      return { n, monto, vencimiento: venc.toISOString(), pagado:false, pagadoAt:null, recargoAplicado:false };
+    });
+    c.status = 'pendiente_aprobacion';
+    STATE.clients.push(c);
+    await saveDB(KEY_CLIENTS, STATE.clients);
+    addLog('registro_cliente', `${c.nombre} (DNI ${c.dni}) registró ${c.equipo}`);
+    window.__draftClient = newClientRecord();
+    toast('✅ Registro enviado. Esperá que el vendedor te llame.');
+    render();
+  };
+}
+
+// ---------------- TAB: PANEL VENDEDOR ----------------
+function renderVendedor(content){
+  if(!STATE.currentUser){
+    renderPinLock(content);
+    return;
+  }
+  const pendientes = STATE.clients.filter(c=>c.status==='pendiente_aprobacion');
+  const activos = STATE.clients.filter(c=>['aprobado','cuota1_pagada','cuota2_pagada'].includes(c.status));
+  const completos = STATE.clients.filter(c=>c.status==='completado');
+
+  content.innerHTML = `
+    <div class="card space-between">
+      <div><strong>Sesión:</strong> ${STATE.currentUser.name}</div>
+      <button class="btn btn-ghost btn-sm" id="btnLogout">Cerrar sesión</button>
+    </div>
+
+    <div class="card">
+      <h2>🟡 Pendientes de aprobación (${pendientes.length})</h2>
+      ${pendientes.length===0 ? '<p class="muted">No hay clientes esperando aprobación.</p>' : pendientes.map(cl=>renderClientListItem(cl)).join('')}
+    </div>
+
+    <div class="card">
+      <h2>🔵 Planes activos (${activos.length})</h2>
+      ${activos.length===0 ? '<p class="muted">No hay planes en curso.</p>' : activos.map(cl=>renderClientListItem(cl)).join('')}
+    </div>
+
+    <div class="card">
+      <h2>✅ Completados / Entregados (${completos.length})</h2>
+      ${completos.length===0 ? '<p class="muted">Ninguno todavía.</p>' : completos.map(cl=>renderClientListItem(cl)).join('')}
+    </div>
+
+    <div id="clientDetail"></div>
+  `;
+  document.getElementById('btnLogout').onclick = ()=>{ STATE.currentUser=null; render(); };
+  content.querySelectorAll('[data-openclient]').forEach(el=>{
+    el.onclick = ()=>{ STATE.editingClientId = el.dataset.openclient; renderClientDetail(); };
+  });
+  if(STATE.editingClientId) renderClientDetail();
+}
+
+function statusPill(status){
+  const map = {
+    pendiente_registro:['pill-pend','Pendiente registro'],
+    pendiente_aprobacion:['pill-pend','Pendiente aprobación'],
+    aprobado:['pill-ok','Aprobado - Cuota 1 pendiente'],
+    cuota1_pagada:['pill-ok','Cuota 1 pagada'],
+    cuota2_pagada:['pill-ok','Cuota 2 pagada'],
+    completado:['pill-done','Completado'],
+    cancelado:['pill-mora','Cancelado']
+  };
+  const [cls,label] = map[status] || ['pill-pend',status];
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+function renderClientListItem(cl){
+  return `
+    <div class="client-list-item" data-openclient="${cl.id}">
+      <div class="space-between">
+        <div>
+          <strong>${cl.nombre}</strong> — DNI ${cl.dni}<br>
+          <span class="muted">${cl.equipo} · IMEI ${cl.imei||'-'}</span>
+        </div>
+        <div>${statusPill(cl.status)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderClientDetail(){
+  const cl = STATE.clients.find(c=>c.id===STATE.editingClientId);
+  if(!cl) return;
+  const box = document.getElementById('clientDetail');
+  const saldo = saldoPendiente(cl);
+  box.innerHTML = `
+    <div class="card">
+      <div class="space-between">
+        <h2>Detalle: ${cl.nombre}</h2>
+        <button class="btn btn-ghost btn-sm" id="btnCloseDetail">Cerrar</button>
+      </div>
+      <div class="row">
+        <div>
+          <p><strong>DNI:</strong> ${cl.dni}</p>
+          <p><strong>Tel:</strong> ${cl.telefono||'-'} · <strong>Email:</strong> ${cl.email||'-'}</p>
+          <p><strong>Equipo:</strong> ${cl.equipo} (IMEI ${cl.imei||'-'})</p>
+          <p><strong>Monto total:</strong> $${cl.montoTotal} + ${cl.interesFijo}% interés</p>
+          <p><strong>Saldo pendiente:</strong> $${saldo}</p>
+          <p><strong>Registrado:</strong> ${new Date(cl.createdAt).toLocaleString()}</p>
+          <p><strong>GPS del alta:</strong> ${cl.gps ? `${cl.gps.lat.toFixed(5)}, ${cl.gps.lng.toFixed(5)}` : '-'}</p>
+        </div>
+        <div>
+          ${cl.fotoDataUrl ? `<img src="${cl.fotoDataUrl}" style="width:100%;max-width:220px;border-radius:10px;">` : '<p class="muted">Sin foto</p>'}
+        </div>
+      </div>
+
+      ${cl.status==='pendiente_aprobacion' ? `
+        <div style="margin-top:14px;">
+          <p class="muted">⚠️ Verificá el DNI físico contra la foto y los datos antes de aprobar.</p>
+          <button class="btn btn-success" id="btnAprobar">✔️ Aprobar y generar pagaré</button>
+          <button class="btn btn-danger" id="btnRechazar">✖️ Rechazar</button>
+        </div>
+      ` : ''}
+
+      ${['aprobado','cuota1_pagada','cuota2_pagada'].includes(cl.status) ? renderCuotasPanel(cl) : ''}
+
+      ${cl.status==='completado' ? `
+        <div style="margin-top:14px;">
+          <p class="pill pill-done">Plan completado — Saldo $0</p>
+          ${!cl.entregado ? `<button class="btn btn-success" id="btnEntregar">📱 Marcar equipo entregado</button>` : `<p class="muted">Entregado el ${new Date(cl.entregadoAt).toLocaleString()} por ${cl.entregadoPor}</p>`}
+          <button class="btn btn-ghost btn-sm" id="btnConstancia">🖨️ Imprimir constancia de cancelación</button>
+        </div>
+      ` : ''}
+
+      <div style="margin-top:14px;">
+        <button class="btn btn-ghost btn-sm" id="btnPrintPagare">🖨️ Reimprimir pagaré</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btnCloseDetail').onclick = ()=>{ STATE.editingClientId=null; render(); };
+
+  if(cl.status==='pendiente_aprobacion'){
+    document.getElementById('btnAprobar').onclick = async ()=>{
+      cl.status='aprobado'; cl.aprobadoPor=STATE.currentUser.name; cl.aprobadoAt=new Date().toISOString();
+      await saveDB(KEY_CLIENTS, STATE.clients);
+      addLog('aprobacion', `${STATE.currentUser.name} aprobó a ${cl.nombre}`);
+      printPagare(cl);
+      toast('Cliente aprobado. Pagaré generado.');
+      render(); STATE.editingClientId=cl.id; renderClientDetail();
+    };
+    document.getElementById('btnRechazar').onclick = async ()=>{
+      cl.status='cancelado';
+      await saveDB(KEY_CLIENTS, STATE.clients);
+      addLog('rechazo', `${STATE.currentUser.name} rechazó a ${cl.nombre}`);
+      toast('Registro rechazado.');
+      STATE.editingClientId=null; render();
+    };
+  }
+
+  document.getElementById('btnPrintPagare').onclick = ()=>printPagare(cl);
+
+  if(['aprobado','cuota1_pagada','cuota2_pagada'].includes(cl.status)){
+    cl.cuotas.forEach((cuota, idx)=>{
+      const payBtn = document.getElementById('btnPagar'+cuota.n);
+      const moraBtn = document.getElementById('btnMora'+cuota.n);
+      if(payBtn) payBtn.onclick = async ()=>{
+        cuota.pagado = true; cuota.pagadoAt = new Date().toISOString();
+        if(cuota.n===1) cl.status='cuota1_pagada';
+        if(cuota.n===2) cl.status='cuota2_pagada';
+        if(cuota.n===3) cl.status='completado';
+        await saveDB(KEY_CLIENTS, STATE.clients);
+        addLog('pago_cuota', `${STATE.currentUser.name} registró pago de cuota ${cuota.n} de ${cl.nombre}`);
+        printRecibo(cl, cuota);
+        toast(`Cuota ${cuota.n} pagada. Recibo generado.`);
+        render(); STATE.editingClientId=cl.id; renderClientDetail();
+      };
+      if(moraBtn) moraBtn.onclick = async ()=>{
+        cuota.recargoAplicado = true;
+        await saveDB(KEY_CLIENTS, STATE.clients);
+        addLog('recargo_mora', `${STATE.currentUser.name} aplicó recargo del ${STATE.settings.moraPct}% a cuota ${cuota.n} de ${cl.nombre}`);
+        toast(`Recargo del ${STATE.settings.moraPct}% aplicado a cuota ${cuota.n}`);
+        render(); STATE.editingClientId=cl.id; renderClientDetail();
+      };
+    });
+  }
+
+  if(cl.status==='completado'){
+    const btnE = document.getElementById('btnEntregar');
+    if(btnE) btnE.onclick = async ()=>{
+      cl.entregado = true; cl.entregadoAt = new Date().toISOString(); cl.entregadoPor = STATE.currentUser.name;
+      await saveDB(KEY_CLIENTS, STATE.clients);
+      addLog('entrega', `${STATE.currentUser.name} entregó el equipo a ${cl.nombre}`);
+      toast('📱 Equipo marcado como entregado.');
+      render(); STATE.editingClientId=cl.id; renderClientDetail();
+    };
+    document.getElementById('btnConstancia').onclick = ()=>printConstancia(cl);
+  }
+}
+
+function renderCuotasPanel(cl){
+  const isVencida = (venc)=> new Date(venc) < new Date();
+  return `
+    <div style="margin-top:14px;">
+      <h3 style="font-size:13px;color:var(--muted);">Cuotas</h3>
+      <table>
+        <tr><th>#</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr>
+        ${cl.cuotas.map(c=>{
+          const vencida = !c.pagado && isVencida(c.vencimiento);
+          const montoFinal = c.recargoAplicado ? Math.round(c.monto*(1+STATE.settings.moraPct/100)*100)/100 : c.monto;
+          const prevPagada = c.n===1 || cl.cuotas[c.n-2].pagado;
+          return `<tr>
+            <td>${c.n}</td>
+            <td>$${montoFinal} ${c.recargoAplicado?`<span class="muted">(+${STATE.settings.moraPct}% mora)</span>`:''}</td>
+            <td>${new Date(c.vencimiento).toLocaleDateString()} ${vencida?'<span class="pill pill-mora">Vencida</span>':''}</td>
+            <td>${c.pagado ? '<span class="pill pill-ok">Pagada</span>' : '<span class="pill pill-pend">Pendiente</span>'}</td>
+            <td>
+              ${!c.pagado && prevPagada ? `<button class="btn btn-success btn-sm" id="btnPagar${c.n}">Cobrar</button>` : ''}
+              ${!c.pagado && !c.recargoAplicado && vencida ? `<button class="btn btn-warn btn-sm" id="btnMora${c.n}">+${STATE.settings.moraPct}% Mora</button>` : ''}
+            </td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div>
+  `;
+}
+
+function renderPinLock(content){
+  window.__pin = window.__pin || '';
+  content.innerHTML = `
+    <div class="card lockscreen">
+      <h2>🔐 Acceso Vendedor / Administrador</h2>
+      <p class="muted">Ingresá tu PIN para validar operaciones</p>
+      <div class="pindots">
+        ${[0,1,2,3].map(i=>`<div class="pindot ${window.__pin.length>i?'filled':''}"></div>`).join('')}
+      </div>
+      <div class="keypad" id="keypad">
+        ${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-num="${n}">${n}</button>`).join('')}
+        <button data-num="clear">C</button>
+        <button data-num="0">0</button>
+        <button data-num="back">⌫</button>
+      </div>
+      <p class="muted" style="margin-top:16px;">PIN demo: 1234</p>
+    </div>
+  `;
+  document.querySelectorAll('#keypad button').forEach(b=>{
+    b.onclick = ()=>{
+      const n = b.dataset.num;
+      if(n==='clear') window.__pin='';
+      else if(n==='back') window.__pin = window.__pin.slice(0,-1);
+      else if(window.__pin.length<4) window.__pin += n;
+      if(window.__pin.length===4){
+        const user = STATE.users.find(u=>u.pin===window.__pin);
+        if(user){ STATE.currentUser = user; window.__pin=''; toast('Bienvenido '+user.name); render(); }
+        else { toast('PIN incorrecto'); window.__pin=''; render(); }
+      } else render();
+    };
+  });
+}
+
+// ---------------- TAB: DASHBOARD ----------------
+function renderDashboard(content){
+  const total = STATE.clients.length;
+  const activos = STATE.clients.filter(c=>['aprobado','cuota1_pagada','cuota2_pagada'].includes(c.status)).length;
+  const completados = STATE.clients.filter(c=>c.status==='completado').length;
+  const pendientes = STATE.clients.filter(c=>c.status==='pendiente_aprobacion').length;
+  const cobrarSemana = STATE.clients.reduce((acc,cl)=>{
+    cl.cuotas.forEach(c=>{
+      if(!c.pagado){
+        const dias = (new Date(c.vencimiento) - new Date())/(1000*60*60*24);
+        if(dias <= 7) acc += c.recargoAplicado ? c.monto*(1+STATE.settings.moraPct/100) : c.monto;
+      }
+    });
+    return acc;
+  },0);
+  const moraTotal = STATE.clients.reduce((acc,cl)=>{
+    cl.cuotas.forEach(c=>{ if(c.recargoAplicado && !c.pagado) acc += c.monto*(STATE.settings.moraPct/100); });
+    return acc;
+  },0);
+
+  content.innerHTML = `
+    <div class="grid4">
+      <div class="stat"><div class="num">${total}</div><div class="lbl">Clientes totales</div></div>
+      <div class="stat"><div class="num">${pendientes}</div><div class="lbl">Por aprobar</div></div>
+      <div class="stat"><div class="num">${activos}</div><div class="lbl">Planes activos</div></div>
+      <div class="stat"><div class="num">${completados}</div><div class="lbl">Completados</div></div>
+    </div>
+    <div class="grid4" style="margin-top:10px;">
+      <div class="stat"><div class="num">$${Math.round(cobrarSemana)}</div><div class="lbl">A cobrar 7 días</div></div>
+      <div class="stat"><div class="num">$${Math.round(moraTotal)}</div><div class="lbl">Mora acumulada</div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>🗂️ Log de auditoría (últimos 30)</h2>
+      <table>
+        <tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr>
+        ${STATE.log.slice(0,30).map(l=>`<tr><td>${new Date(l.ts).toLocaleString()}</td><td>${l.user}</td><td>${l.action}</td><td>${l.detail}</td></tr>`).join('')}
+      </table>
+    </div>
+  `;
+}
+
+// ---------------- TAB: INTEGRACIÓN ----------------
+function renderIntegracion(content){
+  const jsonExport = JSON.stringify(STATE.clients, null, 2);
+  content.innerHTML = `
+    <div class="card">
+      <h2>🔗 Integración con tu Sistema Administrativo</h2>
+      <p class="muted">Esta app no reemplaza tu sistema de administración/contabilidad — está pensada para <strong>alimentarlo</strong>. Opciones para conectar:</p>
+      <ol style="font-size:13px;color:var(--muted);">
+        <li><strong>Exportación JSON manual:</strong> descargá el archivo con todos los clientes y planes, y lo importás a tu sistema.</li>
+        <li><strong>Webhook (recomendado):</strong> cada vez que se aprueba un cliente, se cobra una cuota o se entrega un equipo, la app puede enviar un POST a una URL de tu sistema con los datos del evento en formato JSON.</li>
+        <li><strong>Estructura de datos estándar:</strong> cada cliente tiene los mismos campos (DNI, equipo, IMEI, cuotas, estado), listos para mapear a tu base de datos.</li>
+      </ol>
+
+      <label>URL de Webhook de tu sistema administrativo (opcional)</label>
+      <input id="webhookUrl" placeholder="https://tu-sistema.com/api/webhook-preventa" value="${STATE.settings.webhookUrl||''}">
+      <button class="btn btn-primary btn-sm" id="btnSaveWebhook" style="margin-top:8px;">Guardar URL</button>
+      <p class="muted" style="margin-top:6px;">⚠️ Nota: por restricciones del navegador, este entorno de demo no puede hacer llamadas salientes a dominios externos arbitrarios. Cuando lleves esta app a producción (hosting propio), el código para el POST automático ya queda preparado — ver abajo.</p>
+
+      <h3 style="font-size:13px;margin-top:20px;">Ejemplo de payload que se enviaría por webhook:</h3>
+      <pre>{
+  "evento": "pago_cuota" | "aprobacion" | "entrega" | "registro_cliente",
+  "cliente_id": "c_xxxx",
+  "dni": "12345678",
+  "nombre": "Juan Pérez",
+  "equipo": "iPhone 13 128GB",
+  "imei": "356789...",
+  "cuota_n": 2,
+  "monto": 45000,
+  "saldo_pendiente": 45000,
+  "timestamp": "2026-09-11T14:32:00Z",
+  "vendedor": "Admin"
+}</pre>
+
+      <h3 style="font-size:13px;margin-top:20px;">Exportar base completa (JSON)</h3>
+      <button class="btn btn-success" id="btnExportJson">⬇️ Descargar JSON de todos los clientes</button>
+      <button class="btn btn-ghost" id="btnExportCsv">⬇️ Descargar CSV (para Excel / sistema contable)</button>
+    </div>
+
+    <div class="card">
+      <h2>Vista previa de datos (JSON)</h2>
+      <pre>${jsonExport.slice(0,2000)}${jsonExport.length>2000?'\n... (truncado en vista previa, se exporta completo)':''}</pre>
+    </div>
+  `;
+
+  document.getElementById('btnSaveWebhook').onclick = async ()=>{
+    STATE.settings.webhookUrl = document.getElementById('webhookUrl').value;
+    await saveDB(KEY_SETTINGS, STATE.settings);
+    toast('URL guardada');
+  };
+
+  document.getElementById('btnExportJson').onclick = ()=>{
+    const blob = new Blob([JSON.stringify(STATE.clients,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='clientes_preventa.json'; a.click();
+  };
+  document.getElementById('btnExportCsv').onclick = ()=>{
+    const headers = ['id','nombre','dni','telefono','email','equipo','imei','montoTotal','interesFijo','status','saldoPendiente'];
+    const rows = STATE.clients.map(c=>[c.id,c.nombre,c.dni,c.telefono,c.email,c.equipo,c.imei,c.montoTotal,c.interesFijo,c.status,saldoPendiente(c)]);
+    const csv = [headers.join(',')].concat(rows.map(r=>r.map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','))).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='clientes_preventa.csv'; a.click();
+  };
+}
+
+// ---------------- TAB: CONFIG ----------------
+function renderConfig(content){
+  content.innerHTML = `
+    <div class="card">
+      <h2>⚙️ Configuración General</h2>
+      <label>Nombre del negocio</label>
+      <input id="cfgNegocio" value="${STATE.settings.negocio}">
+      <label>Porcentaje de recargo por mora (%)</label>
+      <input id="cfgMora" type="number" value="${STATE.settings.moraPct}">
+      <label>Lista negra de IMEI (uno por línea)</label>
+      <textarea id="cfgImei">${STATE.settings.imeiBlacklist.join('\n')}</textarea>
+      <button class="btn btn-primary" id="btnSaveCfg" style="margin-top:10px;">Guardar configuración</button>
+    </div>
+
+    <div class="card">
+      <h2>👥 Usuarios / Vendedores (PIN)</h2>
+      <table>
+        <tr><th>Nombre</th><th>PIN</th><th>Rol</th><th></th></tr>
+        ${STATE.users.map(u=>`<tr><td>${u.name}</td><td>${u.pin}</td><td>${u.role}</td><td><button class="btn btn-danger btn-sm" data-deluser="${u.id}">Borrar</button></td></tr>`).join('')}
+      </table>
+      <div class="row" style="margin-top:12px;">
+        <div><label>Nombre nuevo usuario</label><input id="newUserName"></div>
+        <div><label>PIN (4 dígitos)</label><input id="newUserPin" maxlength="4"></div>
+      </div>
+      <button class="btn btn-success btn-sm" id="btnAddUser" style="margin-top:8px;">+ Agregar usuario</button>
+      <p class="muted" style="margin-top:8px;">Cada vendedor debería tener su propio PIN para trazabilidad en el log de auditoría.</p>
+    </div>
+
+    <div class="card">
+      <h2>⚠️ Zona de riesgo</h2>
+      <button class="btn btn-danger btn-sm" id="btnReset">Borrar toda la base de clientes</button>
+    </div>
+  `;
+
+  document.getElementById('btnSaveCfg').onclick = async ()=>{
+    STATE.settings.negocio = document.getElementById('cfgNegocio').value;
+    STATE.settings.moraPct = Number(document.getElementById('cfgMora').value);
+    STATE.settings.imeiBlacklist = document.getElementById('cfgImei').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    await saveDB(KEY_SETTINGS, STATE.settings);
+    toast('Configuración guardada');
+    render();
+  };
+  document.getElementById('btnAddUser').onclick = async ()=>{
+    const name = document.getElementById('newUserName').value.trim();
+    const pin = document.getElementById('newUserPin').value.trim();
+    if(!name || pin.length!==4){ toast('Completá nombre y PIN de 4 dígitos'); return; }
+    STATE.users.push({id:uid(), name, pin, role:'vendedor'});
+    await saveDB(KEY_USERS, STATE.users);
+    toast('Usuario agregado');
+    render();
+  };
+  content.querySelectorAll('[data-deluser]').forEach(b=>{
+    b.onclick = async ()=>{
+      STATE.users = STATE.users.filter(u=>u.id!==b.dataset.deluser);
+      await saveDB(KEY_USERS, STATE.users);
+      render();
+    };
+  });
+  document.getElementById('btnReset').onclick = async ()=>{
+    if(confirm('¿Seguro que querés borrar TODOS los clientes? Esta acción no se puede deshacer.')){
+      STATE.clients = [];
+      await saveDB(KEY_CLIENTS, STATE.clients);
+      toast('Base borrada');
+      render();
+    }
+  };
+}
+
+// ---------------- PRINT DOCUMENTS ----------------
+function printPagare(cl){
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Pagaré - ${cl.nombre}</title></head>
+    <body style="font-family:Arial;padding:30px;color:#111;">
+      <h2 style="text-align:center;">CONTRATO DE RESERVA / COMPRA EN CUOTAS</h2>
+      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
+      <hr>
+      <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+      <p><strong>Cliente:</strong> ${cl.nombre} — DNI/Pasaporte: ${cl.dni}</p>
+      <p><strong>Teléfono:</strong> ${cl.telefono||'-'} · <strong>Email:</strong> ${cl.email||'-'}</p>
+      <p><strong>Equipo reservado:</strong> ${cl.equipo}</p>
+      <p><strong>IMEI:</strong> ${cl.imei||'-'}</p>
+      <p><strong>Monto total del equipo:</strong> $${cl.montoTotal}</p>
+      <p><strong>Interés fijo aplicado:</strong> ${cl.interesFijo}%</p>
+      <table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;margin-top:10px;">
+        <tr><th>Cuota</th><th>Monto</th><th>Fecha de vencimiento</th></tr>
+        ${cl.cuotas.map(c=>`<tr><td>${c.n}</td><td>$${c.monto}</td><td>${new Date(c.vencimiento).toLocaleDateString()}</td></tr>`).join('')}
+      </table>
+      <p style="margin-top:20px;font-size:12px;">El presente documento certifica que el cliente arriba mencionado reservó el equipo detallado, comprometiéndose a abonar el total en 3 (tres) cuotas según el cronograma indicado. En caso de mora en el pago de cualquier cuota, se aplicará un recargo del ${STATE.settings.moraPct}% sobre el monto adeudado. El equipo será entregado únicamente al finalizar el pago total de las 3 cuotas.</p>
+      <p style="font-size:11px;color:#777;">Registro biométrico y GPS verificados en el local al momento del alta. Aprobado por: ${cl.aprobadoPor||'-'} el ${cl.aprobadoAt? new Date(cl.aprobadoAt).toLocaleString():'-'}.</p>
+      <div style="display:flex;justify-content:space-between;margin-top:80px;">
+        <div style="text-align:center;width:45%;border-top:1px solid #111;padding-top:6px;">Firma del Cliente</div>
+        <div style="text-align:center;width:45%;border-top:1px solid #111;padding-top:6px;">Firma del Vendedor</div>
+      </div>
+      <script>window.print();</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+function printRecibo(cl, cuota){
+  const w = window.open('', '_blank');
+  const montoFinal = cuota.recargoAplicado ? Math.round(cuota.monto*(1+STATE.settings.moraPct/100)*100)/100 : cuota.monto;
+  w.document.write(`
+    <html><head><title>Recibo Cuota ${cuota.n}</title></head>
+    <body style="font-family:Arial;padding:30px;color:#111;">
+      <h2 style="text-align:center;">RECIBO DE PAGO — CUOTA ${cuota.n}/3</h2>
+      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
+      <hr>
+      <p><strong>Cliente:</strong> ${cl.nombre} — DNI: ${cl.dni}</p>
+      <p><strong>Equipo:</strong> ${cl.equipo}</p>
+      <p><strong>Cuota:</strong> ${cuota.n} de 3</p>
+      <p><strong>Monto abonado:</strong> $${montoFinal} ${cuota.recargoAplicado?`(incluye recargo por mora del ${STATE.settings.moraPct}%)`:''}</p>
+      <p><strong>Fecha de pago:</strong> ${new Date().toLocaleString()}</p>
+      <p><strong>Recibido por:</strong> ${STATE.currentUser.name}</p>
+      <p><strong>Saldo pendiente:</strong> $${saldoPendiente(cl)}</p>
+      ${cl.status==='completado' ? '<p style="font-weight:bold;color:green;">✔️ PLAN COMPLETADO — Equipo habilitado para entrega</p>' : ''}
+      <div style="margin-top:60px;border-top:1px solid #111;width:45%;text-align:center;padding-top:6px;">Firma / Sello</div>
+      <script>window.print();</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+function printConstancia(cl){
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Constancia de Cancelación</title></head>
+    <body style="font-family:Arial;padding:30px;color:#111;">
+      <h2 style="text-align:center;">CONSTANCIA DE CANCELACIÓN TOTAL</h2>
+      <p style="text-align:center;color:#555;">${STATE.settings.negocio}</p>
+      <hr>
+      <p>Se certifica que <strong>${cl.nombre}</strong> (DNI ${cl.dni}) ha cancelado en su totalidad el plan de pagos correspondiente al equipo <strong>${cl.equipo}</strong> (IMEI ${cl.imei}), habiendo abonado las 3 (tres) cuotas pactadas.</p>
+      <p>Fecha de cancelación total: ${new Date().toLocaleDateString()}</p>
+      <p style="font-weight:bold;color:green;margin-top:20px;">✔️ EQUIPO HABILITADO PARA ENTREGA AL CLIENTE</p>
+      <div style="margin-top:60px;border-top:1px solid #111;width:45%;text-align:center;padding-top:6px;">Firma / Sello del vendedor</div>
+      <script>window.print();</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+// ---------------- INIT ----------------
+initState();
+</script>
+</body>
+</html>
